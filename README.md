@@ -1,5 +1,5 @@
 # TicTacToe-Server
-
+#database
 CREATE TABLE Users (
     userId INT NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1) ,
     username VARCHAR(50) UNIQUE NOT NULL,
