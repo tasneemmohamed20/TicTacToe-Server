@@ -12,11 +12,13 @@ import java.net.URL;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
 import network.ClientHandler;
+import network.Server;
 
 /**
  * FXML Controller class
@@ -24,52 +26,38 @@ import network.ClientHandler;
  * @author ALANDALUS
  */
 public class FXMLDocumentController implements Initializable {
-    
-    ServerSocket serverSocket;
-    Socket socket;
+
+    Server server;
     Thread thread;
-    boolean isStarted;
+    boolean isRunning = false;
 
     @FXML
     private Button startButton;
     @FXML
     private Button endButton;
 
-    /**
-     * Initializes the controller class.
-     */
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         // TODO
-    }    
+    }
 
     @FXML
     private void handleStartButton(ActionEvent event) {
         try {
-            serverSocket = new ServerSocket(5005);
-            System.out.println("Server Started");
-            thread = new Thread(()
-                    -> {
-                while (!Thread.currentThread().interrupted()) {
-                    try {
-                        socket = serverSocket.accept();
-                        new ClientHandler(socket); 
-
-                    } catch (IOException ex) {
-                        if (!serverSocket.isClosed()) {
-                            Logger.getLogger(ServerUI.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-
-                }
-            });
+            if (server == null) {
+                server = new Server();
+            }
+            thread = new Thread(() -> server.startServer());
             thread.start();
-            isStarted = true;
+            isRunning = true;
+            System.out.println("Server Started");
+
             startButton.setDisable(true);
             endButton.setDisable(false);
 
-        } catch (IOException ex) {
-            Logger.getLogger(ServerUI.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
         }
     }
 
@@ -77,25 +65,22 @@ public class FXMLDocumentController implements Initializable {
     private void handleEndButton(ActionEvent event) {
         stop();
     }
-    
-public void stop() {
-        if (isStarted) {
-//            for (String key : ClientHandler.onlineUsers.keySet()) {
-//                ClientHandler.onlineUsers.get(key).writeMessageToClients("SERVER CLOSED");
-//            }
-            thread.interrupt();
-            System.out.println("Stop Server");
-            if (!serverSocket.isClosed()) {
-                try {
-                    serverSocket.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(ServerUI.class.getName()).log(Level.SEVERE, null, ex);
+
+    public void stop() {
+        if (server != null && isRunning) {
+            try {
+                server.stopServer();
+                if (thread != null && thread.isAlive()) {
+                    thread.join(); 
                 }
+                startButton.setDisable(false);
+                endButton.setDisable(true);
+                System.out.println("Server stopped by user.");
+            } catch (InterruptedException ex) {
+                Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        isStarted = false;
-        startButton.setDisable(false);
-        endButton.setDisable(true);
+
     }
-    
+
 }
