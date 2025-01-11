@@ -62,13 +62,17 @@ public class DAO {
 
         DriverManager.registerDriver(new ClientDriver());
         Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
-        PreparedStatement ps = con.prepareStatement("SELECT * FROM Users WHERE username = ? AND password = ?", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        PreparedStatement ps = con.prepareStatement("SELECT * FROM Users WHERE username = ? AND password = ?");
         ps.setString(1, username);
         ps.setString(2, password);
         ResultSet resultSet = ps.executeQuery();
-        resultSet.next();
+        if (resultSet.next()) {
 
-        return resultSet.getInt(1) > 0;
+            return resultSet.getInt(1) > 0;
+        } else {
+
+            return false;
+        }
 
     }
 
