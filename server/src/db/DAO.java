@@ -1,4 +1,3 @@
-
 package db;
 
 import java.sql.Connection;
@@ -11,15 +10,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.derby.jdbc.ClientDriver;
 
-
 public class DAO {
- private Connection connection;
-    
-    
-    public DAO(){
+
+    private Connection connection;
+
+    public DAO() {
         connect();
     }
-    
+
     public void connect() {
         try {
             if (connection == null || connection.isClosed()) {
@@ -42,9 +40,7 @@ public class DAO {
         }
     }
 
-   
-    
-    public static boolean registerForUser(String username, String password) throws SQLException{
+    public static boolean registerForUser(String username, String password) throws SQLException {
         int result = 0;
         DriverManager.registerDriver(new ClientDriver());
         Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
@@ -54,30 +50,26 @@ public class DAO {
         result = ps.executeUpdate();
         con.close();
         ps.close();
-        if(result>0){
+        if (result > 0) {
             return true;// return respone to ui if positive added succ else -neg alert error 
-        }else{return false;}
-        
+        } else {
+            return false;
+        }
+
     }
 
-    
-    
-    public static boolean loginForUser(String username, String password) throws SQLException{
+    public static boolean loginForUser(String username, String password) throws SQLException {
         int result = 0;
         DriverManager.registerDriver(new ClientDriver());
         Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
         PreparedStatement ps = con.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
         ps.setString(1, username);
         ps.setString(2, password);
-        result = ps.executeUpdate();
-        con.close();
-        ps.close();
-        if(result>0){
-            return true;// return respone to ui if positive added succ else -neg alert error 
-        }else{return false;}
-        
+        ResultSet resultSet = ps.executeQuery();
+        return resultSet.next();
+
     }
-  /*  
+    /*  
     public boolean loginUser(String username, String password) {
         String query = "SELECT * FROM Users WHERE username = ? AND password = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
@@ -107,8 +99,6 @@ public class DAO {
             return false;
         }
     }
-  */
+     */
 
-    
 }
-
