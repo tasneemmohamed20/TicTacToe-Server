@@ -26,7 +26,9 @@ import java.util.logging.Logger;
 import models.ResponsModel;
 import models.UserDataModel;
 import models.UserModel;
-
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
+import models.RequsetModel;
 /**
  *
  * @author ALANDALUS
@@ -49,15 +51,19 @@ public class ClientHandler extends Thread {
             clientsVector.add(this);
 
             String jsonRequest = dis.readUTF();
-            Request request = gson.fromJson(jsonRequest, Request.class);
-            String jsonResponse;
+            RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
-            switch (request.action) {
+            Type userType = new TypeToken<UserModel>() {
+            }.getType();
+            UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
+
+            String jsonResponse;
+            switch (request.getAction()) {
                 case "register":
-                    jsonResponse = handleRegistration((UserModel) request.data);
+                    jsonResponse = handleRegistration(user);
                     break;
                 case "login":
-                    jsonResponse = handleLogin((UserModel) request.data);
+                    jsonResponse = handleLogin(user);
                     break;
                 default:
                     jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
@@ -74,8 +80,17 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (true) {
-                String message = dis.readUTF();
-                sendMessageToAll(message);
+                if (dis.available() > 0) {
+                    String message = dis.readUTF();
+                    sendMessageToAll(message);
+                } else {
+                    
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
@@ -111,7 +126,7 @@ public class ClientHandler extends Thread {
             }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : "+ex, null));
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
 
@@ -125,12 +140,12 @@ public class ClientHandler extends Thread {
             }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : "+ex, null));
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
 }
 
-class Request {
+/*class Request {
 
     String action;
     Object data;
@@ -139,6 +154,4 @@ class Request {
         this.action = action;
         this.data = data;
     }
-}
-
-
+}*/
