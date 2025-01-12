@@ -6,6 +6,7 @@
 package network;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import db.DAO;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.lang.reflect.Type;
 import java.net.Socket;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -23,6 +25,7 @@ import java.util.Vector;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import models.RequsetModel;
 import models.ResponsModel;
 import models.UserDataModel;
 import models.UserModel;
@@ -49,15 +52,22 @@ public class ClientHandler extends Thread {
             clientsVector.add(this);
 
             String jsonRequest = dis.readUTF();
-            Request request = gson.fromJson(jsonRequest, Request.class);
-            String jsonResponse;
+            RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
-            switch (request.action) {
+            Type userType = new TypeToken<UserModel>() {
+            }.getType();
+            UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
+
+            String jsonResponse;
+            switch (request.getAction()) {
                 case "register":
-                    jsonResponse = handleRegistration((UserModel) request.data);
+                    jsonResponse = handleRegistration(user);
                     break;
                 case "login":
-                    jsonResponse = handleLogin((UserModel) request.data);
+                    jsonResponse = handleLogin(user);
+                    break;
+                case "fetchOnline":
+                    jsonResponse = handleFetchOnlineUsers();
                     break;
                 default:
                     jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
@@ -74,8 +84,17 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (true) {
-                String message = dis.readUTF();
-                sendMessageToAll(message);
+                if (dis.available() > 0) {
+                    String message = dis.readUTF();
+                    sendMessageToAll(message);
+                } else {
+
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
@@ -111,7 +130,7 @@ public class ClientHandler extends Thread {
             }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : "+ex, null));
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
 
@@ -125,20 +144,19 @@ public class ClientHandler extends Thread {
             }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : "+ex, null));
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
-}
 
-class Request {
-
-    String action;
-    Object data;
-
-    public Request(String action, Object data) {
-        this.action = action;
-        this.data = data;
+    private String handleFetchOnlineUsers() {
+        Vector<String> users = new Vector<String>();
+        try {
+            users = DAO.getAllInlineUsers();
+            System.out.println(gson.toJson(new ResponsModel("success", "Data fetched successfully.", users)));
+            return gson.toJson(new ResponsModel("success", "Data fetched successfully.", users));
+        } catch (SQLException ex) {
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+        }
     }
+
 }
-
-
