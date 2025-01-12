@@ -19,7 +19,7 @@ public class DAO {
     public DAO() {
         try {
             if (connection == null || connection.isClosed()) {
-                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/User", "root", "root");
                 System.out.println("Database connected successfully.");
                 isConnected = true;
             }
