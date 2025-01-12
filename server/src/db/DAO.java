@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.derby.jdbc.ClientDriver;
@@ -18,7 +19,7 @@ public class DAO {
     public DAO() {
         try {
             if (connection == null || connection.isClosed()) {
-                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/User", "root", "root");
+                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
                 System.out.println("Database connected successfully.");
                 isConnected = true;
             }
@@ -88,5 +89,20 @@ public class DAO {
         return rs.getInt(1) > 0;
 
     }
+    
+    public static Vector<String> getAllInlineUsers() throws SQLException {
+        Vector<String> onlineUsers = new Vector<String>();
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/users", "root", "root");
+        PreparedStatement ps = con.prepareStatement("SELECT username FROM users WHERE status = 'online'", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet res = ps.executeQuery();
+        while (res.next()) {
+            onlineUsers.add(res.getString("username"));
+        }
+        con.close();
+        ps.close();
+        return onlineUsers;
+    }
+
 
 }

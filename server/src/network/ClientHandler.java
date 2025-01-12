@@ -29,6 +29,7 @@ import models.UserModel;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import models.RequsetModel;
+
 /**
  *
  * @author ALANDALUS
@@ -65,6 +66,10 @@ public class ClientHandler extends Thread {
                 case "login":
                     jsonResponse = handleLogin(user);
                     break;
+                case "fetchOnline":
+                    jsonResponse = handleFetchOnlineUsers();
+                    break;
+
                 default:
                     jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
             }
@@ -84,7 +89,7 @@ public class ClientHandler extends Thread {
                     String message = dis.readUTF();
                     sendMessageToAll(message);
                 } else {
-                    
+
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException ex) {
@@ -143,6 +148,18 @@ public class ClientHandler extends Thread {
             return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
+
+    private String handleFetchOnlineUsers() {
+        Vector<String> users = new Vector<String>();
+        try {
+            users = DAO.getAllInlineUsers();
+            System.out.println(gson.toJson(new ResponsModel("success", "Data fetched successfully.", users)));
+            return gson.toJson(new ResponsModel("success", "Data fetched successfully.", users));
+        } catch (SQLException ex) {
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+        }
+    }
+
 }
 
 /*class Request {
