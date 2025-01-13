@@ -59,6 +59,20 @@ public class DAO {
 
     }
 
+    public boolean updateUserStatus(String username, String status) throws SQLException {
+    DriverManager.registerDriver(new ClientDriver());
+    Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+    PreparedStatement ps = con.prepareStatement("UPDATE users SET status = ? WHERE username = ?");
+    ps.setString(1, status);
+    ps.setString(2, username);
+
+    int result = ps.executeUpdate();
+    ps.close();
+    con.close();
+
+    return result > 0;
+}
+
     public boolean loginForUser(String username, String password) throws SQLException {
 
         DriverManager.registerDriver(new ClientDriver());

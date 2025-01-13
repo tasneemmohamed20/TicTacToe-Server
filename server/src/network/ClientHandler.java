@@ -134,19 +134,21 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private String handleLogin(UserModel user) {
-        try {
-            boolean isValid = dbManager.loginForUser(user.getUserName(), user.getPassword());
-            if (isValid) {
-                return gson.toJson(new ResponsModel("success", "Login successful.", null));
-            } else {
-                return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+   private String handleLogin(UserModel user) {
+    try {
+        boolean isValid = dbManager.loginForUser(user.getUserName(), user.getPassword());
+        if (isValid) {
+            dbManager.updateUserStatus(user.getUserName(), "online"); 
+            return gson.toJson(new ResponsModel("success", "Login successful.", null));
+        } else {
+            return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
         }
+    } catch (SQLException ex) {
+        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
     }
+}
+
 
     private String handleFetchOnlineUsers() {
         Vector<String> users = new Vector<String>();
