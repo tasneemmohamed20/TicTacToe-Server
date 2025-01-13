@@ -1,48 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="741.0" prefWidth="1193.0" style="-fx-background-color: #5a1e76;" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serverUI.FXMLDocumentController">
-   <top>
-      <HBox prefHeight="100.0" prefWidth="200.0" spacing="20.0" BorderPane.alignment="CENTER">
-         <children>
-            <Button fx:id="startButton" mnemonicParsing="false" onAction="#handleStartButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="Start">
-               <HBox.margin>
-                  <Insets bottom="30.0" left="30.0" right="30.0" top="100.0" />
-               </HBox.margin>
-            </Button>
-            <Button fx:id="endButton" mnemonicParsing="false" onAction="#handleEndButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="End">
-               <HBox.margin>
-                  <Insets bottom="30.0" right="30.0" top="100.0" />
-               </HBox.margin>
-            </Button>
-            <FlowPane alignment="TOP_RIGHT" prefHeight="200.0" prefWidth="817.0">
-               <children>
-                  <Text fill="#dcbf3f" strokeType="OUTSIDE" strokeWidth="0.0" text="Server" textAlignment="JUSTIFY" wrappingWidth="516.029296875">
-                     <font>
-                        <Font size="150.0" />
-                     </font>
-                     <FlowPane.margin>
-                        <Insets />
-                     </FlowPane.margin>
-                  </Text>
-               </children>
-            </FlowPane>
-         </children>
-      </HBox>
-   </top>
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="813.0" prefWidth="1260.0" style="-fx-background-color: #5a1e76;" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serverUI.FXMLDocumentController">
    <right>
-        <VBox alignment="TOP_CENTER" prefHeight="491.0" prefWidth="715.0" style="-fx-background-color: #2b0040; -fx-border-radius: 20px; -fx-border-color: #5a1e76; -fx-border-width: 10px;" BorderPane.alignment="CENTER">
+<!--        <VBox alignment="TOP_CENTER" prefHeight="491.0" prefWidth="715.0" style="-fx-background-color: #2b0040; -fx-border-radius: 20px; -fx-border-color: #5a1e76; -fx-border-width: 10px;" BorderPane.alignment="CENTER">
            <BorderPane.margin>
               <Insets bottom="50.0" />
            </BorderPane.margin>
@@ -68,29 +40,54 @@
                  </VBox.margin>
               </TextField>
            </children>
-        </VBox>
+        </VBox>-->
 
    </right>
-   <left>
-      <VBox prefHeight="541.0" prefWidth="476.0" BorderPane.alignment="CENTER">
+   <right>
+      <BarChart fx:id="barChart" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="640.0" style="-fx-background-color: #dcbf3f;" title="Players Analytics" BorderPane.alignment="CENTER_RIGHT">
+        <xAxis>
+          <CategoryAxis side="BOTTOM" />
+        </xAxis>
+        <yAxis>
+          <NumberAxis side="LEFT" />
+        </yAxis>
+         <BorderPane.margin>
+            <Insets bottom="50.0" right="50.0" />
+         </BorderPane.margin>
+      </BarChart>
+   </right>
+   <top>
+      <FlowPane alignment="TOP_RIGHT" maxHeight="-Infinity" prefHeight="119.0" prefWidth="1260.0" BorderPane.alignment="CENTER">
          <children>
-            <ImageView fitHeight="231.0" fitWidth="293.0" pickOnBounds="true" preserveRatio="true">
-               <VBox.margin>
-                  <Insets left="200.0" top="30.0" />
-               </VBox.margin>
-               <image>
-                  <Image url="@/assets/barchart.png" />
-               </image>
-            </ImageView>
-            <ImageView fitHeight="254.0" fitWidth="456.0" pickOnBounds="true" preserveRatio="true">
-               <VBox.margin>
-                  <Insets top="30.0" />
-               </VBox.margin>
-               <image>
-                  <Image url="@/assets/tic. tac.toe..png" />
-               </image>
-            </ImageView>
+            <Text fill="#dcbf3f" strokeType="OUTSIDE" strokeWidth="0.0" text="SERVER" textAlignment="JUSTIFY" wrappingWidth="926.029296875">
+               <font>
+                  <Font name="System Bold" size="96.0" />
+               </font>
+               <FlowPane.margin>
+                  <Insets />
+               </FlowPane.margin>
+            </Text>
+            <Button fx:id="startButton" mnemonicParsing="false" onAction="#handleStartButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="Start">
+               <FlowPane.margin>
+                  <Insets right="20.0" />
+               </FlowPane.margin>
+            </Button>
+            <Button fx:id="endButton" mnemonicParsing="false" onAction="#handleEndButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="End">
+               <FlowPane.margin>
+                  <Insets right="50.0" />
+               </FlowPane.margin>
+            </Button>
          </children>
-      </VBox>
+         <BorderPane.margin>
+            <Insets top="30.0" />
+         </BorderPane.margin>
+      </FlowPane>
+   </top>
+   <left>
+      <ImageView fitHeight="345.0" fitWidth="300.0" pickOnBounds="true" preserveRatio="true" BorderPane.alignment="BOTTOM_LEFT">
+         <image>
+            <Image url="@../assets/tic.%20tac.toe..png" />
+         </image>
+      </ImageView>
    </left>
 </BorderPane>

@@ -1,0 +1,11 @@
+.chart-bar {
+    -fx-bar-fill: #3498db;
+}
+
+.onlinePlayers .chart-bar {
+    -fx-bar-fill: #2ecc71; 
+}
+
+.offlinePlayers .chart-bar {
+    -fx-bar-fill: #e74c3c; 
+}

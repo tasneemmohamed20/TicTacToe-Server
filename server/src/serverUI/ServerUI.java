@@ -31,7 +31,7 @@ public class ServerUI extends Application {
         stage.setScene(scene);
         stage.show();
         stage.setOnCloseRequest((event) -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Do You Want Close Server", ButtonType.YES,ButtonType.NO);
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Do You Want Close Server", ButtonType.YES,ButtonType.NO);
             alert.showAndWait().ifPresent(click->{
                 if(click == ButtonType.NO)
                 {
