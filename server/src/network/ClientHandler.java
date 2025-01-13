@@ -51,7 +51,19 @@ public class ClientHandler extends Thread {
             dos = new DataOutputStream(socket.getOutputStream());
             clientsVector.add(this);
 
-            String jsonRequest = dis.readUTF();
+            
+            start();
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                if (dis.available() > 0) {
+                   String jsonRequest = dis.readUTF();
             RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
             Type userType = new TypeToken<UserModel>() {
@@ -75,19 +87,6 @@ public class ClientHandler extends Thread {
             }
 
             dos.writeUTF(jsonResponse);
-            start();
-        } catch (IOException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    @Override
-    public void run() {
-        try {
-            while (true) {
-                if (dis.available() > 0) {
-                    String message = dis.readUTF();
-                    sendMessageToAll(message);
                 } else {
 
                     try {
@@ -111,7 +110,7 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private void sendMessageToAll(String message) {
+   /* private void sendMessageToAll(String message) {
         for (ClientHandler client : clientsVector) {
             try {
                 client.dos.writeUTF(message);
@@ -119,7 +118,7 @@ public class ClientHandler extends Thread {
                 Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-    }
+    }*/
 
     private String handleRegistration(UserModel user) {
         try {
