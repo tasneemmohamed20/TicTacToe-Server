@@ -112,7 +112,7 @@ public class DAO {
     public static Vector<String> getAllInlineUsers() throws SQLException {
         Vector<String> onlineUsers = new Vector<String>();
         DriverManager.registerDriver(new ClientDriver());
-        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/users", "root", "root");
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
         PreparedStatement ps = con.prepareStatement("SELECT username FROM users WHERE status = 'online'", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
         ResultSet res = ps.executeQuery();
         while (res.next()) {
@@ -123,4 +123,20 @@ public class DAO {
         return onlineUsers;
     }
 
+
+    public static Vector<String> getAllUsers() throws SQLException {
+        Vector<String> allUsers = new Vector<>();
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+        PreparedStatement ps = con.prepareStatement("SELECT username FROM users", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet res = ps.executeQuery();
+        while (res.next()) {
+            allUsers.add(res.getString("username"));
+        }
+        con.close();
+        ps.close();
+        return allUsers;
+    }
+
 }
+
