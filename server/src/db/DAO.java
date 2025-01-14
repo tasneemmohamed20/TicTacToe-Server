@@ -6,8 +6,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import models.UserModel;
 import org.apache.derby.jdbc.ClientDriver;
 
 public class DAO {
@@ -18,7 +20,7 @@ public class DAO {
     public DAO() {
         try {
             if (connection == null || connection.isClosed()) {
-                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/User", "root", "root");
+                connection = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
                 System.out.println("Database connected successfully.");
                 isConnected = true;
             }
@@ -58,7 +60,21 @@ public class DAO {
 
     }
 
-    public boolean loginForUser(String username, String password) throws SQLException {
+    public boolean updateUserStatus(String username, String status) throws SQLException {
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+        PreparedStatement ps = con.prepareStatement("UPDATE users SET status = ? WHERE username = ?");
+        ps.setString(1, status);
+        ps.setString(2, username);
+
+        int result = ps.executeUpdate();
+        ps.close();
+        con.close();
+
+        return result > 0;
+    }
+
+    public UserModel loginForUser(String username, String password) throws SQLException {
 
         DriverManager.registerDriver(new ClientDriver());
         Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
@@ -66,13 +82,17 @@ public class DAO {
         ps.setString(1, username);
         ps.setString(2, password);
         ResultSet resultSet = ps.executeQuery();
-        if (resultSet.next()) {
-
-            return resultSet.getInt(1) > 0;
-        } else {
-
-            return false;
+        UserModel user = null;
+        while (resultSet.next()) {
+            user = new UserModel(
+                    resultSet.getInt("userid"),
+                    resultSet.getString("username"),
+                    resultSet.getString("password"),
+                    resultSet.getString("score"),
+                    resultSet.getString("status")
+            );
         }
+        return user;
 
     }
 
@@ -87,6 +107,20 @@ public class DAO {
         rs.next();
         return rs.getInt(1) > 0;
 
+    }
+
+    public static Vector<String> getAllInlineUsers() throws SQLException {
+        Vector<String> onlineUsers = new Vector<String>();
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/users", "root", "root");
+        PreparedStatement ps = con.prepareStatement("SELECT username FROM users WHERE status = 'online'", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet res = ps.executeQuery();
+        while (res.next()) {
+            onlineUsers.add(res.getString("username"));
+        }
+        con.close();
+        ps.close();
+        return onlineUsers;
     }
 
 }

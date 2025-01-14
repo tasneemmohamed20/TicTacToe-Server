@@ -29,6 +29,7 @@ import models.UserModel;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import models.RequsetModel;
+
 /**
  *
  * @author ALANDALUS
@@ -50,26 +51,6 @@ public class ClientHandler extends Thread {
             dos = new DataOutputStream(socket.getOutputStream());
             clientsVector.add(this);
 
-            String jsonRequest = dis.readUTF();
-            RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
-
-            Type userType = new TypeToken<UserModel>() {
-            }.getType();
-            UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
-
-            String jsonResponse;
-            switch (request.getAction()) {
-                case "register":
-                    jsonResponse = handleRegistration(user);
-                    break;
-                case "login":
-                    jsonResponse = handleLogin(user);
-                    break;
-                default:
-                    jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
-            }
-
-            dos.writeUTF(jsonResponse);
             start();
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
@@ -81,10 +62,32 @@ public class ClientHandler extends Thread {
         try {
             while (true) {
                 if (dis.available() > 0) {
-                    String message = dis.readUTF();
-                    sendMessageToAll(message);
+                    String jsonRequest = dis.readUTF();
+                    RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
+
+                    Type userType = new TypeToken<UserModel>() {
+                    }.getType();
+                    UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
+
+                    String jsonResponse;
+                    switch (request.getAction()) {
+                        case "register":
+                            jsonResponse = handleRegistration(user);
+                            break;
+                        case "login":
+                            jsonResponse = handleLogin(user);
+                            break;
+                        case "fetchOnline":
+                            jsonResponse = handleFetchOnlineUsers();
+                            break;
+
+                        default:
+                            jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
+                    }
+
+                    dos.writeUTF(jsonResponse);
                 } else {
-                    
+
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException ex) {
@@ -106,7 +109,7 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private void sendMessageToAll(String message) {
+    /* private void sendMessageToAll(String message) {
         for (ClientHandler client : clientsVector) {
             try {
                 client.dos.writeUTF(message);
@@ -114,8 +117,7 @@ public class ClientHandler extends Thread {
                 Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-    }
-
+    }*/
     private String handleRegistration(UserModel user) {
         try {
             boolean success = dbManager.registerForUser(user.getUserName(), user.getPassword());
@@ -132,9 +134,11 @@ public class ClientHandler extends Thread {
 
     private String handleLogin(UserModel user) {
         try {
-            boolean isValid = dbManager.loginForUser(user.getUserName(), user.getPassword());
-            if (isValid) {
-                return gson.toJson(new ResponsModel("success", "Login successful.", null));
+
+            UserModel data = dbManager.loginForUser(user.getUserName(), user.getPassword());
+            if (data != null) {
+                dbManager.updateUserStatus(user.getUserName(), "online");
+                return gson.toJson(new ResponsModel("success", "Login successful.", data));
             } else {
                 return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
             }
@@ -143,6 +147,18 @@ public class ClientHandler extends Thread {
             return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
+
+    private String handleFetchOnlineUsers() {
+        Vector<String> users = new Vector<String>();
+        try {
+            users = DAO.getAllInlineUsers();
+            System.out.println(gson.toJson(new ResponsModel("success", "Data fetched successfully.", users)));
+            return gson.toJson(new ResponsModel("success", "Data fetched successfully.", users));
+        } catch (SQLException ex) {
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+        }
+    }
+
 }
 
 /*class Request {
