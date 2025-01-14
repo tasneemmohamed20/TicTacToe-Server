@@ -42,6 +42,7 @@ public class ClientHandler extends Thread {
     private Gson gson = new Gson();
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
+    private String name;
 
     public ClientHandler(Socket socket, DAO dbManager) {
         try {
@@ -51,7 +52,6 @@ public class ClientHandler extends Thread {
             dos = new DataOutputStream(socket.getOutputStream());
             clientsVector.add(this);
 
-            
             start();
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
@@ -63,30 +63,39 @@ public class ClientHandler extends Thread {
         try {
             while (true) {
                 if (dis.available() > 0) {
-                   String jsonRequest = dis.readUTF();
-            RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
+                    String jsonRequest = dis.readUTF();
+                    RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
-            Type userType = new TypeToken<UserModel>() {
-            }.getType();
-            UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
+                    Type userType = new TypeToken<UserModel>() {
+                    }.getType();
+                    UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
 
-            String jsonResponse;
-            switch (request.getAction()) {
-                case "register":
-                    jsonResponse = handleRegistration(user);
-                    break;
-                case "login":
-                    jsonResponse = handleLogin(user);
-                    break;
-                case "fetchOnline":
-                    jsonResponse = handleFetchOnlineUsers();
-                    break;
+                    String jsonResponse;
+                    switch (request.getAction()) {
+                        case "register":
+                            jsonResponse = handleRegistration(user);
+                            dos.writeUTF(jsonResponse);
+                            break;
+                        case "login":
+                            jsonResponse = handleLogin(user);
+                            dos.writeUTF(jsonResponse);
+                            break;
+                        case "fetchOnline":
+                            jsonResponse = handleFetchOnlineUsers(name);
+                            dos.writeUTF(jsonResponse);
+                            break;
+                        case "invite":
+                            sendInvite(request);
+                            break;
+                        case "cancel":
+                            cancelInvite(request);
+                            break;
 
-                default:
-                    jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
-            }
+                        default:
+                            jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
+                    }
 
-            dos.writeUTF(jsonResponse);
+                    
                 } else {
 
                     try {
@@ -110,7 +119,7 @@ public class ClientHandler extends Thread {
         }
     }
 
-   /* private void sendMessageToAll(String message) {
+    /* private void sendMessageToAll(String message) {
         for (ClientHandler client : clientsVector) {
             try {
                 client.dos.writeUTF(message);
@@ -119,7 +128,91 @@ public class ClientHandler extends Thread {
             }
         }
     }*/
+    
+    private void sendInvite(RequsetModel request) {
+        
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
 
+        System.out.println("Sending invitation from " + sender + " to " + receiver);
+
+        for (ClientHandler client : clientsVector) {
+            if (receiver.equals(client.name)) {
+               try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                        "invitation",
+                        sender + " wants to play with you.",
+                        data
+                    )));
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                return;
+            } 
+
+            else if (sender.equalsIgnoreCase(client.name)){
+                try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                        "wait",
+                        "Wait for response.",
+                        data
+                    )));
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+     }
+     
+     // if the receiver is not online
+
+        try {
+            dos.writeUTF(gson.toJson(new ResponsModel(
+                "error",
+                "User " + receiver + " is not available.",
+                null
+            )));
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void cancelInvite(RequsetModel request) {
+        
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
+
+        System.out.println("cancel invitation from " + sender + " to " + receiver);
+
+        for (ClientHandler client : clientsVector) {
+
+            if (sender.equalsIgnoreCase(client.name)){
+                try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                        "cancel",
+                        receiver + " Reject the invitation.",
+                        data
+                    )));
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+     }
+     
+     // if the receiver is not online
+
+     try {
+         dos.writeUTF(gson.toJson(new ResponsModel(
+             "error",
+             "User " + receiver + " is not available.",
+             null
+         )));
+     } catch (IOException ex) {
+         Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+     }
+ }
+    
     private String handleRegistration(UserModel user) {
         try {
             boolean success = dbManager.registerForUser(user.getUserName(), user.getPassword());
@@ -134,26 +227,28 @@ public class ClientHandler extends Thread {
         }
     }
 
-   private String handleLogin(UserModel user) {
-    try {
-        boolean isValid = dbManager.loginForUser(user.getUserName(), user.getPassword());
-        if (isValid) {
-            dbManager.updateUserStatus(user.getUserName(), "online"); 
-            return gson.toJson(new ResponsModel("success", "Login successful.", null));
-        } else {
-            return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
+    private String handleLogin(UserModel user) {
+        try {
+
+            UserModel data = dbManager.loginForUser(user.getUserName(), user.getPassword());
+            if (data != null) {
+                dbManager.updateUserStatus(user.getUserName(), "online");
+                name = user.getUserName();
+                return gson.toJson(new ResponsModel("success", "Login successful.", data));
+            } else {
+                return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
-    } catch (SQLException ex) {
-        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
     }
-}
 
-
-    private String handleFetchOnlineUsers() {
+    private String handleFetchOnlineUsers(String name) {
         Vector<String> users = new Vector<String>();
         try {
             users = DAO.getAllInlineUsers();
+            users.add(name);
             System.out.println(gson.toJson(new ResponsModel("success", "Data fetched successfully.", users)));
             return gson.toJson(new ResponsModel("success", "Data fetched successfully.", users));
         } catch (SQLException ex) {
