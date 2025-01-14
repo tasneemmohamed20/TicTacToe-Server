@@ -6,6 +6,7 @@
 package serverUI;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -31,11 +32,13 @@ public class ServerUI extends Application {
         stage.setScene(scene);
         stage.show();
         stage.setOnCloseRequest((event) -> {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Do You Want Close Server", ButtonType.YES,ButtonType.NO);
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Do you want to close the server?", ButtonType.YES,ButtonType.NO);
             alert.showAndWait().ifPresent(click->{
-                if(click == ButtonType.NO)
-                {
-                    server.stop();
+                if (click == ButtonType.YES) {
+                server.stop();
+                Platform.exit();
+                } else if (click == ButtonType.NO) {
+                    event.consume(); 
                 }
                 
             });
