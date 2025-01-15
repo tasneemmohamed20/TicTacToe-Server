@@ -28,6 +28,7 @@ import models.UserDataModel;
 import models.UserModel;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import models.GameModel;
 import models.RequsetModel;
 
 /**
@@ -90,7 +91,9 @@ public class ClientHandler extends Thread {
                         case "cancel":
                             cancelInvite(request);
                             break;
-
+                        case "accept":
+                            acceptInvitation(request);
+                            break;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
@@ -214,6 +217,31 @@ public class ClientHandler extends Thread {
          Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
      }
  }
+    private void acceptInvitation(RequsetModel request)
+    {
+        Map<String,String>data = (Map<String, String>) request.getData();
+        String player1 = data.get("sender");
+        String player2 = data.get("receiver");
+        GameModel game = new GameModel(player1 , player2);
+        System.out.println("Accept invitation from " + player1 + " to " + player2);
+
+        for (ClientHandler client : clientsVector) {
+
+            if (player1.equalsIgnoreCase(client.name) || player2.equalsIgnoreCase(client.name)){
+                try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                        "accept",
+                        "Start The Game",
+                        game
+                    )));
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+     }
+        
+    }
+
     
     private String handleRegistration(UserModel user) {
         try {
