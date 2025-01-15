@@ -148,10 +148,12 @@ public class ClientHandler extends Thread {
                 } catch (IOException ex) {
                     Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                return;
             } 
+        }
+        
+        for (ClientHandler client : clientsVector) {
 
-            else if (sender.equalsIgnoreCase(client.name)){
+            if (sender.equalsIgnoreCase(client.name)){
                 try {
                     client.dos.writeUTF(gson.toJson(new ResponsModel(
                         "wait",
@@ -162,9 +164,9 @@ public class ClientHandler extends Thread {
                     Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-     }
-     
-     // if the receiver is not online
+        }
+
+        // if the receiver is not online
 
         try {
             dos.writeUTF(gson.toJson(new ResponsModel(
