@@ -9,6 +9,7 @@ import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import models.GameModel;
 import models.UserModel;
 import org.apache.derby.jdbc.ClientDriver;
 
@@ -137,6 +138,10 @@ public class DAO {
         ps.close();
         return allUsers;
     }
+    
+    
+  
 
+    
 }
 

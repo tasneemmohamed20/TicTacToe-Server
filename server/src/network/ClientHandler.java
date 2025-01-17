@@ -28,7 +28,10 @@ import models.UserDataModel;
 import models.UserModel;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.util.concurrent.ConcurrentHashMap;
 import models.GameModel;
+import models.GameRequestModel;
+import models.GameResponseModel;
 import models.RequsetModel;
 
 /**
@@ -42,6 +45,7 @@ public class ClientHandler extends Thread {
     private Socket socket;
     private Gson gson = new Gson();
     private static Vector<ClientHandler> clientsVector = new Vector<>();
+    private static Map<String, GameModel> activeGames = new ConcurrentHashMap<>();
     private DAO dbManager;
     private String name;
 
@@ -94,6 +98,12 @@ public class ClientHandler extends Thread {
                         case "accept":
                             acceptInvitation(request);
                             break;
+                         case "startGame":
+                            handleStartGame(gson.fromJson(jsonRequest, GameRequestModel.class));
+                            break;
+                        case "move": 
+                            handleMove(gson.fromJson(jsonRequest, GameRequestModel.class));
+                            break;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
@@ -112,6 +122,7 @@ public class ClientHandler extends Thread {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
+                 handleDisconnection();
                 clientsVector.remove(this);
                 dis.close();
                 dos.close();
@@ -122,16 +133,6 @@ public class ClientHandler extends Thread {
         }
     }
 
-    /* private void sendMessageToAll(String message) {
-        for (ClientHandler client : clientsVector) {
-            try {
-                client.dos.writeUTF(message);
-            } catch (IOException ex) {
-                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }*/
-    
     private void sendInvite(RequsetModel request) {
         
         Map<String, String> data = (Map<String, String>) request.getData();
@@ -168,9 +169,6 @@ public class ClientHandler extends Thread {
                 }
             }
         }
-
-        // if the receiver is not online
-
         try {
             dos.writeUTF(gson.toJson(new ResponsModel(
                 "error",
@@ -181,7 +179,7 @@ public class ClientHandler extends Thread {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+ 
     private void cancelInvite(RequsetModel request) {
         
         Map<String, String> data = (Map<String, String>) request.getData();
@@ -204,9 +202,6 @@ public class ClientHandler extends Thread {
                 }
             }
      }
-     
-     // if the receiver is not online
-
      try {
          dos.writeUTF(gson.toJson(new ResponsModel(
              "error",
@@ -217,32 +212,39 @@ public class ClientHandler extends Thread {
          Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
      }
  }
-    private void acceptInvitation(RequsetModel request)
-    {
-        Map<String,String>data = (Map<String, String>) request.getData();
-        String player1 = data.get("sender");
-        String player2 = data.get("receiver");
-        GameModel game = new GameModel(player1 , player2);
-        System.out.println("Accept invitation from " + player1 + " to " + player2);
+    private void acceptInvitation(RequsetModel request) {
+    Map<String, String> data = (Map<String, String>) request.getData();
+    String player1 = data.get("sender");
+    String player2 = data.get("receiver");
+    String gameKey = player1 + "_" + player2;
 
-        for (ClientHandler client : clientsVector) {
+    synchronized (activeGames) {
+        if (!activeGames.containsKey(gameKey)) {
+            GameModel game = new GameModel(player1, player2);
+            activeGames.put(gameKey, game);
 
-            if (player1.equalsIgnoreCase(client.name) || player2.equalsIgnoreCase(client.name)){
-                try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "accept",
-                        "Start The Game",
-                        game
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("Game added to activeGames: " + gameKey);
+
+            for (ClientHandler client : clientsVector) {
+                if (player1.equalsIgnoreCase(client.name) || player2.equalsIgnoreCase(client.name)) {
+                    try {
+                        client.dos.writeUTF(gson.toJson(new ResponsModel(
+                            "accept",
+                            "Game started.",
+                            game
+                        )));
+                    } catch (IOException ex) {
+                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
-     }
-        
+        }
     }
+}
 
-    
+
+   
+
     private String handleRegistration(UserModel user) {
         try {
             boolean success = dbManager.registerForUser(user.getUserName(), user.getPassword());
@@ -285,6 +287,110 @@ public class ClientHandler extends Thread {
             return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
+    
+private void handleStartGame(GameRequestModel request) throws IOException {
+    String player1 = request.getData().get("player1");
+    String player2 = request.getData().get("player2");
+    String gameKey = player1.compareTo(player2) < 0 ? player1 + "_" + player2 : player2 + "_" + player1;
+
+    if (!activeGames.containsKey(gameKey)) {
+        dos.writeUTF(gson.toJson(new ResponsModel("error", "No active game found between the players.", null)));
+        return;
+    }
+
+    GameModel game = activeGames.get(gameKey);
+    System.out.println("Game started between " + player1 + " and " + player2);
+    dos.writeUTF(gson.toJson(new ResponsModel("success", "Game started.", game)));
+}
+
+
+
+private void handleMove(GameRequestModel request) throws IOException {
+    String player = request.getData().get("player");
+    String cell = request.getData().get("cell");
+    String opponent = request.getData().get("opponent");
+
+    String gameKey = player.compareTo(opponent) < 0 ? player + "_" + opponent : opponent + "_" + player;
+
+    if (!activeGames.containsKey(gameKey)) {
+        dos.writeUTF(gson.toJson(new ResponsModel("error", "No active game found.", null)));
+        return;
+    }
+
+    GameModel game = activeGames.get(gameKey);
+
+    synchronized (game) {
+        try {
+            int cellIndex = Integer.parseInt(cell);
+            if (!game.makeMove(player, String.valueOf(cellIndex))) {
+                dos.writeUTF(gson.toJson(new ResponsModel("error", "Invalid move or not your turn.", null)));
+                return;
+            }
+
+            String gameState = game.checkGameState();
+            sendGameUpdate(gameKey, game);
+
+            if (!"ongoing".equals(gameState)) {
+                notifyGameEnd(gameKey, gameState);
+                activeGames.remove(gameKey);
+            }
+        } catch (NumberFormatException e) {
+            dos.writeUTF(gson.toJson(new ResponsModel("error", "Cell index must be a number between 1 and 9.", null)));
+        }
+    }
+}
+
+
+private void sendGameUpdate(String gameKey, GameModel game) throws IOException {
+    for (ClientHandler client : clientsVector) {
+        if (gameKey.contains(client.name)) {
+            synchronized (client) {
+                client.dos.writeUTF(gson.toJson(new ResponsModel(
+                    "update",
+                    "Game state updated.",
+                    game.getBoardState()
+                )));
+            }
+        }
+    }
+}
+
+private void notifyGameEnd(String gameKey, String result) throws IOException {
+    for (ClientHandler client : clientsVector) {
+        if (gameKey.contains(client.name)) {
+            synchronized (client) {
+                client.dos.writeUTF(gson.toJson(new ResponsModel(
+                    "end",
+                    result,
+                    null
+                )));
+            }
+        }
+    }
+}
+
+
+private void handleDisconnection() {
+    clientsVector.remove(this);
+    String disconnectedPlayer = this.name;
+
+    activeGames.entrySet().removeIf(entry -> {
+        String gameKey = entry.getKey();
+        if (gameKey.contains(disconnectedPlayer)) {
+            GameModel game = entry.getValue();
+            try {
+                notifyGameEnd(gameKey, disconnectedPlayer + " disconnected. Game over.");
+            } catch (IOException e) {
+                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, e);
+            }
+            return true;
+        }
+        return false;
+    });
+
+    System.out.println(disconnectedPlayer + " disconnected.");
+}
+
 
 }
 
