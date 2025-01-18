@@ -10,8 +10,8 @@ package models;
  * @author El-Wattaneya
  */
 public class RequsetModel {
-     String action;
-    Object data;
+     private String action;
+    private Object data;
 
     public RequsetModel(String action, Object data) {
         this.action = action;
@@ -32,6 +32,14 @@ public class RequsetModel {
 
     public void setData(Object data) {
         this.data = data;
+    }
+
+    @Override
+    public String toString() {
+        return "RequestModel{" +
+                "action='" + action + '\'' +
+                ", data=" + data +
+                '}';
     }
     
 }
