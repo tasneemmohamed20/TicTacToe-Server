@@ -15,30 +15,30 @@ import models.ResponsModel;
 public class GameThread extends Thread {
     private final ClientHandler playerOne;
     private final ClientHandler playerTwo;
-    private final GameModel gameModel; 
+    private final GameModel gameModel;
     private boolean isGameRunning = true;
 
     public GameThread(ClientHandler playerOne, ClientHandler playerTwo, GameModel gameModel) {
         this.playerOne = playerOne;
         this.playerTwo = playerTwo;
-        this.gameModel = gameModel; 
+        this.gameModel = gameModel;
     }
 
     @Override
     public void run() {
         try {
-            playerOne.sendMessage(new ResponsModel("info", "Game started! You are Player X.", null));
-            playerTwo.sendMessage(new ResponsModel("info", "Game started! You are Player O.", null));
+            initializeGame();
 
             while (isGameRunning) {
                 ClientHandler currentPlayer = gameModel.isPlayerTurn() ? playerOne : playerTwo;
                 ClientHandler opponentPlayer = gameModel.isPlayerTurn() ? playerTwo : playerOne;
 
                 currentPlayer.sendMessage(new ResponsModel("info", "Your turn. Enter your move (cell1-cell9):", null));
-                String move = currentPlayer.receiveMessage();
 
+                String move = currentPlayer.receiveMessage();
                 if (move == null || move.isEmpty()) {
-                    currentPlayer.sendMessage(new ResponsModel("info", "You disconnected. Ending the game.", null));
+                    currentPlayer.sendMessage(new ResponsModel("error", "You disconnected. Ending the game.", null));
+                    opponentPlayer.sendMessage(new ResponsModel("info", "Your opponent disconnected. You win!", null));
                     isGameRunning = false;
                     break;
                 }
@@ -48,12 +48,11 @@ public class GameThread extends Thread {
 
                     String gameState = gameModel.checkGameState();
                     if (!gameState.equals("Ongoing")) {
-                        playerOne.sendMessage(new ResponsModel("info", gameState, null));
-                        playerTwo.sendMessage(new ResponsModel("info", gameState, null));
-                        isGameRunning = false;
+                        handleGameOver(gameState);
+                        break;
                     }
                 } else {
-                    currentPlayer.sendMessage(new ResponsModel("info", "Invalid move. Try again.", null));
+                    currentPlayer.sendMessage(new ResponsModel("error", "Invalid move. Try again.", null));
                 }
             }
         } catch (Exception e) {
@@ -63,9 +62,23 @@ public class GameThread extends Thread {
         }
     }
 
+    private void initializeGame() {
+        playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", null));
+        playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", null));
+    }
+
     private boolean processMove(String cellId) {
+        if (!cellId.matches("cell[1-9]")) {
+            return false;
+        }
+
         String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
-        return gameModel.makeMove(cellId, currentSymbol);
+        boolean moveSuccessful = gameModel.makeMove(cellId, currentSymbol);
+
+        if (moveSuccessful) {
+            gameModel.isPlayerTurn();
+        }
+        return moveSuccessful;
     }
 
     private void broadcastBoard() {
@@ -81,8 +94,16 @@ public class GameThread extends Thread {
             }
         }
 
-        playerOne.sendMessage(new ResponsModel("info", boardState.toString(), null));
-        playerTwo.sendMessage(new ResponsModel("info", boardState.toString(), null));
+        ResponsModel boardResponse = new ResponsModel("info", boardState.toString(), null);
+        playerOne.sendMessage(boardResponse);
+        playerTwo.sendMessage(boardResponse);
+    }
+
+    private void handleGameOver(String gameState) {
+        ResponsModel gameOverResponse = new ResponsModel("info", gameState, null);
+        playerOne.sendMessage(gameOverResponse);
+        playerTwo.sendMessage(gameOverResponse);
+        isGameRunning = false;
     }
 
     private void cleanup() {

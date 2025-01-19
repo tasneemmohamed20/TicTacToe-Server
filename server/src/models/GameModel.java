@@ -11,15 +11,19 @@ import java.util.Map;
  * @author HP
  */
 public class GameModel {
-    private String gameId;
-    private String player1;
-    private String player1Symbol;
-    private String player2;
-    private String player2Symbol;
+    private final String gameId;
+    private final String player1;
+    private final String player1Symbol;
+    private final String player2;
+    private final String player2Symbol;
+
+    public String[] getBoard() {
+        return board;
+    }
     private String[] board;
     private String currentPlayer;
     private boolean isPlayerTurn;
-    private transient Gson gson = new Gson(); 
+    private transient final Gson gson = new Gson();
 
     public GameModel(String gameId, String player1, String player1Symbol, String player2, String player2Symbol) {
         if (player1 == null || player2 == null || player1.isEmpty() || player2.isEmpty()) {
@@ -37,7 +41,7 @@ public class GameModel {
         this.board = new String[9];
         Arrays.fill(this.board, null);
         this.currentPlayer = player1;
-        this.isPlayerTurn = player1Symbol.equals("X"); 
+        this.isPlayerTurn = player1Symbol.equals("X");
     }
 
     public String getGameId() {
@@ -61,7 +65,7 @@ public class GameModel {
     }
 
     public String[] getBoardState() {
-        return board.clone(); 
+        return board.clone();
     }
 
     public String getCurrentPlayer() {
@@ -73,24 +77,24 @@ public class GameModel {
     }
 
     public boolean makeMove(String cellId, String symbol) {
-    int cellIndex = getCellIndex(cellId);
+        int cellIndex = getCellIndex(cellId);
 
-    if (cellIndex < 0 || cellIndex >= 9 || board[cellIndex] != null) {
-        System.err.println("Invalid move: Cell " + cellId + " is already occupied or out of bounds.");
-        return false; 
+        if (cellIndex < 0 || cellIndex >= board.length || board[cellIndex] != null) {
+            System.err.println("Invalid move: Cell " + cellId + " is already occupied or out of bounds.");
+            return false;
+        }
+
+        String expectedSymbol = currentPlayer.equals(player1) ? player1Symbol : player2Symbol;
+        if (!symbol.equals(expectedSymbol)) {
+            System.err.println("Invalid move: Symbol " + symbol + " does not match current player " + currentPlayer);
+            return false;
+        }
+
+        board[cellIndex] = symbol;
+        currentPlayer = currentPlayer.equals(player1) ? player2 : player1;
+        isPlayerTurn = !isPlayerTurn;
+        return true;
     }
-
-    if (!symbol.equals(currentPlayer.equals(player1) ? player1Symbol : player2Symbol)) {
-        System.err.println("Invalid move: Symbol " + symbol + " does not match current player " + currentPlayer);
-        return false;
-    }
-
-    board[cellIndex] = symbol;
-    currentPlayer = currentPlayer.equals(player1) ? player2 : player1;
-    isPlayerTurn = !isPlayerTurn;
-    return true;
-}
-
 
     public String checkGameState() {
         int[][] winningCombinations = {
@@ -108,11 +112,7 @@ public class GameModel {
         }
 
         boolean isBoardFull = Arrays.stream(board).allMatch(cell -> cell != null);
-        if (isBoardFull) {
-            return "Draw";
-        }
-
-        return "Ongoing";
+        return isBoardFull ? "Draw" : "Ongoing";
     }
 
     public String createMoveRequest(String cellId) {

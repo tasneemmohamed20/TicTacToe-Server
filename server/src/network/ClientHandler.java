@@ -44,6 +44,8 @@ public class ClientHandler extends Thread {
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
     private String name;
+    private volatile boolean isGameActive = false; 
+    
 
     public ClientHandler(Socket socket, DAO dbManager) {
         try {
@@ -63,12 +65,16 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (true) {
+                if (isGameActive) {
+                    Thread.sleep(100); 
+                    continue;
+                }
+
                 if (dis.available() > 0) {
                     String jsonRequest = dis.readUTF();
                     RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
-                    Type userType = new TypeToken<UserModel>() {
-                    }.getType();
+                    Type userType = new TypeToken<UserModel>() {}.getType();
                     UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
 
                     String jsonResponse;
@@ -97,30 +103,17 @@ public class ClientHandler extends Thread {
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
-
-                    
                 } else {
-
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+                    Thread.sleep(100); 
                 }
             }
-        } catch (IOException ex) {
+        } catch (IOException | InterruptedException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            try {
-                clientsVector.remove(this);
-                dis.close();
-                dos.close();
-                socket.close();
-            } catch (IOException ex) {
-                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            closeConnection();
         }
     }
+
 public void closeConnection() {
         try {
             clientsVector.remove(this);
@@ -163,43 +156,31 @@ public String receiveMessage() {
     }*/
     
     private void sendInvite(RequsetModel request) {
-        
-        Map<String, String> data = (Map<String, String>) request.getData();
-        String sender = data.get("sender");
-        String receiver = data.get("receiver");
+    Map<String, String> data = (Map<String, String>) request.getData();
+    String sender = data.get("sender");
+    String receiver = data.get("receiver");
 
-        System.out.println("Sending invitation from " + sender + " to " + receiver);
+    System.out.println("[DEBUG] Sending invitation from: " + sender + " to: " + receiver);
 
-        for (ClientHandler client : clientsVector) {
-            if (receiver.equals(client.name)) {
-               try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "invitation",
-                        sender + " wants to play with you.",
-                        data
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            } 
-        }
-        
-        for (ClientHandler client : clientsVector) {
-
-            if (sender.equalsIgnoreCase(client.name)){
-                try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "wait",
-                        "Wait for response.",
-                        data
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
+    boolean receiverFound = false;
+    for (ClientHandler client : clientsVector) {
+        if (receiver.equals(client.name)) {
+            receiverFound = true;
+            try {
+                client.dos.writeUTF(gson.toJson(new ResponsModel(
+                    "invitation",
+                    sender + " wants to play with you.",
+                    data
+                )));
+                System.out.println("[DEBUG] Invitation sent to: " + receiver);
+            } catch (IOException ex) {
+                System.err.println("[ERROR] Failed to send invitation to: " + receiver + ". Error: " + ex.getMessage());
             }
         }
+    }
 
-
+    if (!receiverFound) {
+        System.out.println("[DEBUG] Receiver not found: " + receiver);
         try {
             dos.writeUTF(gson.toJson(new ResponsModel(
                 "error",
@@ -207,9 +188,46 @@ public String receiveMessage() {
                 null
             )));
         } catch (IOException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            System.err.println("[ERROR] Failed to notify sender about unavailable receiver. Error: " + ex.getMessage());
         }
     }
+}
+    
+    private void acceptInvitation(RequsetModel request) {
+    Map<String, String> data = (Map<String, String>) request.getData();
+    String sender = data.get("sender");
+    String receiver = data.get("receiver");
+
+    System.out.println("[DEBUG] Accepting invitation from " + receiver + " for " + sender);
+
+    ClientHandler player1 = null;
+    ClientHandler player2 = null;
+
+    synchronized (clientsVector) {
+        for (ClientHandler client : clientsVector) {
+            if (client.name.equals(sender)) player1 = client;
+            if (client.name.equals(receiver)) player2 = client;
+        }
+    }
+
+    if (player1 != null && player2 != null) {
+        String gameId = "game-" + System.currentTimeMillis();
+        GameModel gameModel = new GameModel(gameId, sender, "X", receiver, "O");
+         System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
+
+        System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
+        
+        player1.sendMessage(new ResponsModel("gameStart", "Game started successfully.", gameModel));
+        player2.sendMessage(new ResponsModel("gameStart", "Game started successfully.", gameModel));
+
+        player1.startGame();
+        player2.startGame();
+
+        new GameThread(player1, player2, gameModel).start();
+    } else {
+        System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
+    }
+}
     
     private void cancelInvite(RequsetModel request) {
         
@@ -245,64 +263,14 @@ public String receiveMessage() {
          Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
      }
  }
-private void acceptInvitation(RequsetModel request) {
-    System.out.println("Received acceptInvitation request: " + new Gson().toJson(request));
 
-    Map<String, String> data = (Map<String, String>) request.getData();
-    System.out.println("Extracted data from request: " + new Gson().toJson(data));
-
-    if (data == null || !data.containsKey("sender") || !data.containsKey("receiver")) {
-        sendMessage(new ResponsModel("error", "Invalid invitation data. Please try again.", null));
-        return;
+public void startGame() {
+        isGameActive = true;
     }
 
-    String player1Name = data.get("sender");
-    String player2Name = data.get("receiver");
-
-    System.out.println("Sender: " + player1Name + ", Receiver: " + player2Name);
-
-    if (player1Name == null || player2Name == null || player1Name.isEmpty() || player2Name.isEmpty()) {
-        sendMessage(new ResponsModel("error", "Player names cannot be null or empty.", null));
-        return;
+    public void endGame() {
+        isGameActive = false;
     }
-
-    if (player1Name.equals(player2Name)) {
-        sendMessage(new ResponsModel("error", "You cannot start a game with yourself.", null));
-        return;
-    }
-
-    ClientHandler player1 = null;
-    ClientHandler player2 = null;
-
-    synchronized (clientsVector) {
-        for (ClientHandler client : clientsVector) {
-            if (player1Name.equals(client.name)) {
-                player1 = client;
-            }
-            if (player2Name.equals(client.name)) {
-                player2 = client;
-            }
-        }
-    }
-
-    if (player1 == null || player2 == null) {
-        String missingPlayer = (player1 == null) ? player1Name : player2Name;
-        sendMessage(new ResponsModel("error", "Player " + missingPlayer + " not found or offline.", null));
-        return;
-    }
-
-    String gameId = "game-" + System.currentTimeMillis();
-
-    GameModel gameModel = new GameModel(gameId, player1Name, "X", player2Name, "O");
-    System.out.println("GameModel created: " + new Gson().toJson(gameModel));
-
-    ResponsModel response = new ResponsModel("gameStart", "Game started successfully.", gameModel);
-
-    player1.sendMessage(response);
-    player2.sendMessage(response);
-
-    new GameThread(player1, player2, gameModel).start();
-}
 
 
 
