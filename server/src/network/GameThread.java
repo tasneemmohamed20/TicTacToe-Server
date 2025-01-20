@@ -63,8 +63,8 @@ public class GameThread extends Thread {
     }
 
     private void initializeGame() {
-        playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", null));
-        playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", null));
+        playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", gameModel));
+        playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", gameModel));
     }
 
     private boolean processMove(String cellId) {
@@ -75,9 +75,9 @@ public class GameThread extends Thread {
         String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
         boolean moveSuccessful = gameModel.makeMove(cellId, currentSymbol);
 
-        if (moveSuccessful) {
-            gameModel.isPlayerTurn();
-        }
+        // if (moveSuccessful) {
+        //     gameModel.isPlayerTurn();
+        // }
         return moveSuccessful;
     }
 

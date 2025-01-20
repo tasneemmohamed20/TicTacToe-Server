@@ -134,13 +134,13 @@ public String receiveMessage() {
     }
 }
 
- void sendMessage(ResponsModel response) {
-    String responseJson = new Gson().toJson(response);
-    System.out.println("Sending response: " + responseJson);
+public void sendMessage(ResponsModel response) {
     try {
-        dos.writeUTF(responseJson);
+        dos.writeUTF(gson.toJson(response));
         dos.flush();
+        System.out.println("[DEBUG] Sent message to client: " + gson.toJson(response));
     } catch (IOException e) {
+        System.err.println("[ERROR] Failed to send message: " + e.getMessage());
         e.printStackTrace();
     }
 }
@@ -264,7 +264,7 @@ public String receiveMessage() {
      }
  }
 
-public void startGame() {
+    public void startGame() {
         isGameActive = true;
     }
 
