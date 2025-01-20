@@ -1,58 +1,49 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package network;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import db.DAO;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.net.Socket;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import models.ResponsModel;
-import models.UserDataModel;
-import models.UserModel;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 import models.GameModel;
 import models.RequsetModel;
+import models.ResponsModel;
+import models.UserModel;
 
-/**
- *
- * @author ALANDALUS
- */
 public class ClientHandler extends Thread {
 
+    private static final String ACTION_REGISTER = "register";
+    private static final String ACTION_LOGIN = "login";
+    private static final String ACTION_FETCH_ONLINE = "fetchOnline";
+    private static final String ACTION_INVITE = "invite";
+    private static final String ACTION_CANCEL = "cancel";
+    private static final String ACTION_ACCEPT = "accept";
+
+    private Socket clientSocket;
     private DataInputStream dis;
     private DataOutputStream dos;
-    private Socket socket;
     private Gson gson = new Gson();
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
     private String name;
+    private boolean isRunning = true;
+    private GameThread gameThread; // مرجع إلى GameThread
 
     public ClientHandler(Socket socket, DAO dbManager) {
         try {
-            this.socket = socket;
+            this.clientSocket = socket;
             this.dbManager = dbManager;
-            dis = new DataInputStream(socket.getInputStream());
-            dos = new DataOutputStream(socket.getOutputStream());
+            dis = new DataInputStream(clientSocket.getInputStream());
+            dos = new DataOutputStream(clientSocket.getOutputStream());
             clientsVector.add(this);
-
             start();
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
@@ -62,204 +53,81 @@ public class ClientHandler extends Thread {
     @Override
     public void run() {
         try {
-            while (true) {
-                if (dis.available() > 0) {
+            while (isRunning) {
+                try {
                     String jsonRequest = dis.readUTF();
-                    RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
+                    System.out.println("Received from Client: " + jsonRequest);
 
-                    Type userType = new TypeToken<UserModel>() {
-                    }.getType();
-                    UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
+                    RequsetModel request;
+                    try {
+                        request = gson.fromJson(jsonRequest, RequsetModel.class);
+                    } catch (JsonSyntaxException e) {
+                        System.err.println("Invalid JSON received: " + jsonRequest);
+                        continue;
+                    }
 
                     String jsonResponse;
                     switch (request.getAction()) {
-                        case "register":
-                            jsonResponse = handleRegistration(user);
-                            dos.writeUTF(jsonResponse);
+                        case ACTION_REGISTER:
+                            jsonResponse = handleRegistration(request);
                             break;
-                        case "login":
-                            jsonResponse = handleLogin(user);
-                            dos.writeUTF(jsonResponse);
+                        case ACTION_LOGIN:
+                            jsonResponse = handleLogin(request);
                             break;
-                        case "fetchOnline":
-                            jsonResponse = handleFetchOnlineUsers(name);
-                            dos.writeUTF(jsonResponse);
+                        case ACTION_FETCH_ONLINE:
+                            jsonResponse = handleFetchOnlineUsers();
                             break;
-                        case "invite":
+                        case ACTION_INVITE:
                             sendInvite(request);
-                            break;
-                        case "cancel":
+                            continue;
+                        case ACTION_CANCEL:
                             cancelInvite(request);
-                            break;
-                        case "accept":
+                            continue;
+                        case ACTION_ACCEPT:
                             acceptInvitation(request);
-                            break;
+                            continue;
+                        case "move":
+                            // تمرير الحركة إلى GameThread
+                            if (gameThread != null) {
+                                gameThread.handleOpponentMove(request.getData());
+                            } else {
+                                System.out.println("GameThread is not initialized.");
+                            }
+                            continue;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
-
-                    
-                } else {
-
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+                    System.out.println("jsonResponse:::" + jsonResponse);
+                    dos.writeUTF(jsonResponse);
+                } catch (SocketException ex) {
+                    System.err.println("Connection lost with client: " + name);
+                    break;
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    break;
                 }
             }
-        } catch (IOException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            try {
-                clientsVector.remove(this);
-                dis.close();
-                dos.close();
-                socket.close();
-            } catch (IOException ex) {
-                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            cleanup();
         }
     }
 
-    /* private void sendMessageToAll(String message) {
-        for (ClientHandler client : clientsVector) {
-            try {
-                client.dos.writeUTF(message);
-            } catch (IOException ex) {
-                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }*/
-    
-    private void sendInvite(RequsetModel request) {
-        
-        Map<String, String> data = (Map<String, String>) request.getData();
-        String sender = data.get("sender");
-        String receiver = data.get("receiver");
-
-        System.out.println("Sending invitation from " + sender + " to " + receiver);
-
-        for (ClientHandler client : clientsVector) {
-            if (receiver.equals(client.name)) {
-               try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "invitation",
-                        sender + " wants to play with you.",
-                        data
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            } 
-        }
-        
-        for (ClientHandler client : clientsVector) {
-
-            if (sender.equalsIgnoreCase(client.name)){
-                try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "wait",
-                        "Wait for response.",
-                        data
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-        // if the receiver is not online
-
+    private String handleRegistration(RequsetModel request) {
         try {
-            dos.writeUTF(gson.toJson(new ResponsModel(
-                "error",
-                "User " + receiver + " is not available.",
-                null
-            )));
-        } catch (IOException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-    
-    private void cancelInvite(RequsetModel request) {
-        
-        Map<String, String> data = (Map<String, String>) request.getData();
-        String sender = data.get("sender");
-        String receiver = data.get("receiver");
-
-        System.out.println("cancel invitation from " + sender + " to " + receiver);
-
-        for (ClientHandler client : clientsVector) {
-
-            if (sender.equalsIgnoreCase(client.name)){
-                try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "cancel",
-                        receiver + " Reject the invitation.",
-                        data
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-     }
-     
-     // if the receiver is not online
-
-     try {
-         dos.writeUTF(gson.toJson(new ResponsModel(
-             "error",
-             "User " + receiver + " is not available.",
-             null
-         )));
-     } catch (IOException ex) {
-         Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-     }
- }
-    private void acceptInvitation(RequsetModel request)
-    {
-        Map<String,String>data = (Map<String, String>) request.getData();
-        String player1 = data.get("sender");
-        String player2 = data.get("receiver");
-        GameModel game = new GameModel(player1 , player2);
-        System.out.println("Accept invitation from " + player1 + " to " + player2);
-
-        for (ClientHandler client : clientsVector) {
-
-            if (player1.equalsIgnoreCase(client.name) || player2.equalsIgnoreCase(client.name)){
-                try {
-                    client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "accept",
-                        "Start The Game",
-                        game
-                    )));
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-     }
-        
-    }
-
-    
-    private String handleRegistration(UserModel user) {
-        try {
+            UserModel user = gson.fromJson(gson.toJson(request.getData()), UserModel.class);
             boolean success = dbManager.registerForUser(user.getUserName(), user.getPassword());
-            if (success) {
-                return gson.toJson(new ResponsModel("success", "User registered successfully.", null));
-            } else {
-                return gson.toJson(new ResponsModel("error", "Registration failed. Username already exist.", null));
-            }
-        } catch (SQLException ex) {
+            return success
+                    ? gson.toJson(new ResponsModel("success", "User registered successfully.", null))
+                    : gson.toJson(new ResponsModel("error", "Registration failed. Username already exists.", null));
+        } catch (Exception ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+            return gson.toJson(new ResponsModel("error", "Database error: " + ex.getMessage(), null));
         }
     }
 
-    private String handleLogin(UserModel user) {
+    private String handleLogin(RequsetModel request) {
         try {
-
+            UserModel user = gson.fromJson(gson.toJson(request.getData()), UserModel.class);
             UserModel data = dbManager.loginForUser(user.getUserName(), user.getPassword());
             if (data != null) {
                 dbManager.updateUserStatus(user.getUserName(), "online");
@@ -268,33 +136,102 @@ public class ClientHandler extends Thread {
             } else {
                 return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
             }
-        } catch (SQLException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+            return gson.toJson(new ResponsModel("error", "Database error: " + ex.getMessage(), null));
         }
     }
 
-    private String handleFetchOnlineUsers(String name) {
-        Vector<String> users = new Vector<String>();
+    private String handleFetchOnlineUsers() {
         try {
-            users = DAO.getAllInlineUsers();
+            List<String> users = dbManager.getAllInlineUsers();
             users.add(name);
-            System.out.println(gson.toJson(new ResponsModel("success", "Data fetched successfully.", users)));
             return gson.toJson(new ResponsModel("success", "Data fetched successfully.", users));
-        } catch (SQLException ex) {
-            return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
+        } catch (Exception ex) {
+            return gson.toJson(new ResponsModel("error", "Database error: " + ex.getMessage(), null));
         }
     }
 
-}
+    private void sendInvite(RequsetModel request) {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
 
-/*class Request {
-
-    String action;
-    Object data;
-
-    public Request(String action, Object data) {
-        this.action = action;
-        this.data = data;
+        ClientHandler receiverHandler = findClientHandler(receiver);
+        if (receiverHandler != null) {
+            receiverHandler.sendToClient(new ResponsModel("invitation", sender + " wants to play with you.", data));
+            findClientHandler(sender).sendToClient(new ResponsModel("wait", "Wait for response.", data));
+        } else {
+            findClientHandler(sender).sendToClient(new ResponsModel("error", "User " + receiver + " is not available.", null));
+        }
     }
-}*/
+
+    private void cancelInvite(RequsetModel request) {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
+
+        ClientHandler senderHandler = findClientHandler(sender);
+        if (senderHandler != null) {
+            senderHandler.sendToClient(new ResponsModel("cancel", receiver + " rejected the invitation.", data));
+        }
+    }
+
+    private void acceptInvitation(RequsetModel request) {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String player1 = data.get("sender");
+        String player2 = data.get("receiver");
+
+        ClientHandler player1Handler = findClientHandler(player1);
+        ClientHandler player2Handler = findClientHandler(player2);
+
+        if (player1Handler != null && player2Handler != null) {
+            GameModel game = new GameModel(player1, player2);
+
+            // إنشاء GameThread وإعطاؤه مرجعًا إلى ClientHandler
+            gameThread = new GameThread(player1Handler.clientSocket, player2Handler.clientSocket, game, player1Handler, player2Handler);
+            gameThread.start();
+
+            System.out.println("Game Thread is Opened from fun accept invitation");
+        } else {
+            findClientHandler(player1).sendToClient(new ResponsModel("error", "One of the players is not available.", null));
+        }
+    }
+
+    private ClientHandler findClientHandler(String playerName) {
+        for (ClientHandler client : clientsVector) {
+            if (playerName.equalsIgnoreCase(client.name)) {
+                return client;
+            }
+        }
+        return null;
+    }
+
+    void sendToClient(ResponsModel response) {
+        try {
+            String jsonResponse = gson.toJson(response);
+            dos.writeUTF(jsonResponse);
+            dos.flush();
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, "Failed to send message to client.", ex);
+        }
+    }
+
+    private void cleanup() {
+        try {
+            if (dis != null) {
+                dis.close();
+            }
+            if (dos != null) {
+                dos.close();
+            }
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                clientSocket.close();
+            }
+            clientsVector.remove(this);
+            System.out.println("Client disconnected: " + name);
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, "Error closing resources", ex);
+        }
+    }
+}

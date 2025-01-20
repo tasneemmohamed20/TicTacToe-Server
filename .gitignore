@@ -1,1 +1,9 @@
 /server/dist/
+server/nbproject/
+*.properties
+*.class
+*.html
+*.jar
+*.jnlp
+*.js
+
