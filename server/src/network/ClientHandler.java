@@ -45,6 +45,7 @@ public class ClientHandler extends Thread {
     private DAO dbManager;
     private String name;
     private volatile boolean isGameActive = false; 
+    private GameThread activeGameThread = null; 
     
 
     public ClientHandler(Socket socket, DAO dbManager) {
@@ -65,7 +66,7 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (true) {
-                if (isGameActive) {
+                if (isGameActive && activeGameThread != null) {
                     Thread.sleep(100); 
                     continue;
                 }
@@ -127,7 +128,10 @@ public void closeConnection() {
     }
 public String receiveMessage() {
     try {
-        return dis.readUTF();
+        String ss =  dis.readUTF();
+        System.out.println( "RECEIVE MESSAGE UTF "+ss);
+        return ss;
+              
     } catch (IOException ex) {
         Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         return null;
@@ -193,7 +197,7 @@ public void sendMessage(ResponsModel response) {
     }
 }
     
-    private void acceptInvitation(RequsetModel request) {
+   /* private void acceptInvitation(RequsetModel request) {
     Map<String, String> data = (Map<String, String>) request.getData();
     String sender = data.get("sender");
     String receiver = data.get("receiver");
@@ -227,8 +231,54 @@ public void sendMessage(ResponsModel response) {
     } else {
         System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
     }
-}
+}*/
     
+    private void acceptInvitation(RequsetModel request) {
+    Map<String, String> data = (Map<String, String>) request.getData();
+    String sender = data.get("sender");
+    String receiver = data.get("receiver");
+
+    System.out.println("[DEBUG] Accepting invitation from " + receiver + " for " + sender);
+
+    ClientHandler player1 = null;
+    ClientHandler player2 = null;
+
+    synchronized (clientsVector) {
+        for (ClientHandler client : clientsVector) {
+            if (client.name.equals(sender)) {
+                player1 = client;
+            }
+            if (client.name.equals(receiver)) {
+                player2 = client;
+            }
+            if (player1 != null && player2 != null) {
+                break; 
+            }
+        }
+    }
+
+    if (player1 != null && player2 != null) {
+        String gameId = "game-" + System.currentTimeMillis();
+        GameModel gameModel = new GameModel(gameId, sender, "X", receiver, "O");
+
+        System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
+
+        player1.sendMessage(new ResponsModel("gameStart", "Game started successfully.", gameModel));
+        player2.sendMessage(new ResponsModel("gameStart", "Game started successfully.", gameModel));
+        
+        GameThread gameThread = new GameThread(player1, player2, gameModel);
+
+        player1.startGame(gameThread);
+        player2.startGame(gameThread);
+        
+        gameThread.start();
+
+        new GameThread(player1, player2, gameModel).start();
+    } else {
+        System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
+    }
+}
+
     private void cancelInvite(RequsetModel request) {
         
         Map<String, String> data = (Map<String, String>) request.getData();
@@ -264,12 +314,14 @@ public void sendMessage(ResponsModel response) {
      }
  }
 
-    public void startGame() {
+     public void startGame(GameThread gameThread) {
         isGameActive = true;
+        activeGameThread = gameThread;
     }
 
     public void endGame() {
         isGameActive = false;
+        activeGameThread = null;
     }
 
 

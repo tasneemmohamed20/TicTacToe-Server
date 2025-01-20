@@ -27,7 +27,8 @@ public class GameThread extends Thread {
     @Override
     public void run() {
         try {
-            initializeGame();
+            playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", gameModel));
+            playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", gameModel));
 
             while (isGameRunning) {
                 ClientHandler currentPlayer = gameModel.isPlayerTurn() ? playerOne : playerTwo;
@@ -42,30 +43,18 @@ public class GameThread extends Thread {
                     isGameRunning = false;
                     break;
                 }
-
-                if (processMove(move)) {
-                    broadcastBoard();
-
-                    String gameState = gameModel.checkGameState();
-                    if (!gameState.equals("Ongoing")) {
-                        handleGameOver(gameState);
-                        break;
-                    }
-                } else {
-                    currentPlayer.sendMessage(new ResponsModel("error", "Invalid move. Try again.", null));
-                }
+                processMove(move);
+                opponentPlayer.sendMessage(new ResponsModel("update", "Opponent moved.", null));
+             
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
+        }  finally {
             cleanup();
+            playerOne.endGame();
+            playerTwo.endGame();
         }
     }
 
-    private void initializeGame() {
-        playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", gameModel));
-        playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", gameModel));
-    }
+    
 
     private boolean processMove(String cellId) {
         if (!cellId.matches("cell[1-9]")) {
@@ -75,9 +64,6 @@ public class GameThread extends Thread {
         String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
         boolean moveSuccessful = gameModel.makeMove(cellId, currentSymbol);
 
-        // if (moveSuccessful) {
-        //     gameModel.isPlayerTurn();
-        // }
         return moveSuccessful;
     }
 
