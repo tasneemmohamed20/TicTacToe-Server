@@ -10,6 +10,8 @@ import java.util.Map;
  *
  * @author HP
  */
+
+
 public class GameModel {
     private final String gameId;
     private final String player1;
@@ -17,12 +19,10 @@ public class GameModel {
     private final String player2;
     private final String player2Symbol;
 
-    public String[] getBoard() {
-        return board;
-    }
     private String[] board;
     private String currentPlayer;
     private boolean isPlayerTurn;
+
     private transient final Gson gson = new Gson();
 
     public GameModel(String gameId, String player1, String player1Symbol, String player2, String player2Symbol) {
@@ -38,8 +38,10 @@ public class GameModel {
         this.player1Symbol = player1Symbol;
         this.player2 = player2;
         this.player2Symbol = player2Symbol;
+
         this.board = new String[9];
         Arrays.fill(this.board, null);
+
         this.currentPlayer = player1;
         this.isPlayerTurn = player1Symbol.equals("X");
     }
@@ -64,7 +66,7 @@ public class GameModel {
         return player2Symbol;
     }
 
-    public String[] getBoardState() {
+    public String[] getBoard() {
         return board.clone();
     }
 
@@ -74,6 +76,10 @@ public class GameModel {
 
     public boolean isPlayerTurn() {
         return isPlayerTurn;
+    }
+
+    public void setIsPlayerTurn(boolean isPlayerTurn) {
+        this.isPlayerTurn = isPlayerTurn;
     }
 
     public boolean makeMove(String cellId, String symbol) {
@@ -91,28 +97,25 @@ public class GameModel {
         }
 
         board[cellIndex] = symbol;
-        currentPlayer = currentPlayer.equals(player1) ? player2 : player1;
-        isPlayerTurn = !isPlayerTurn;
+        switchTurn();
         return true;
     }
 
-    public String checkGameState() {
-        int[][] winningCombinations = {
-            {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
-            {0, 3, 6}, {1, 4, 7}, {2, 5, 8},
-            {0, 4, 8}, {2, 4, 6}
-        };
-
-        for (int[] combination : winningCombinations) {
-            if (board[combination[0]] != null &&
-                board[combination[0]].equals(board[combination[1]]) &&
-                board[combination[1]].equals(board[combination[2]])) {
-                return board[combination[0]] + " wins!";
-            }
+    public String checkGameOver() {
+        if (isWinningConditionMet(player1Symbol)) {
+            return player1 + " wins!";
+        } else if (isWinningConditionMet(player2Symbol)) {
+            return player2 + " wins!";
+        } else if (isBoardFull()) {
+            return "It's a draw!";
         }
+        return "Game ongoing"; // Game continues
+    }
 
-        boolean isBoardFull = Arrays.stream(board).allMatch(cell -> cell != null);
-        return isBoardFull ? "Draw" : "Ongoing";
+    public void resetBoard() {
+        Arrays.fill(board, null);
+        currentPlayer = player1;
+        isPlayerTurn = player1Symbol.equals("X");
     }
 
     public String createMoveRequest(String cellId) {
@@ -124,10 +127,25 @@ public class GameModel {
         return gson.toJson(new RequsetModel("move", moveData));
     }
 
-    public void resetBoard() {
-        Arrays.fill(board, null);
-        currentPlayer = player1;
-        isPlayerTurn = player1Symbol.equals("X");
+    private boolean isWinningConditionMet(String symbol) {
+        int[][] winningCombinations = {
+            {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // Rows
+            {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // Columns
+            {0, 4, 8}, {2, 4, 6}             // Diagonals
+        };
+
+        for (int[] combination : winningCombinations) {
+            if (symbol.equals(board[combination[0]]) &&
+                symbol.equals(board[combination[1]]) &&
+                symbol.equals(board[combination[2]])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isBoardFull() {
+        return Arrays.stream(board).allMatch(cell -> cell != null);
     }
 
     private int getCellIndex(String cellId) {
@@ -144,4 +162,12 @@ public class GameModel {
             default: return -1;
         }
     }
+
+    private void switchTurn() {
+        currentPlayer = currentPlayer.equals(player1) ? player2 : player1;
+        isPlayerTurn = !isPlayerTurn;
+    }
+    
+    
+
 }

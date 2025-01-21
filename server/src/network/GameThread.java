@@ -5,6 +5,7 @@
  */
 package network;
 
+import java.util.Arrays;
 import models.GameModel;
 import models.ResponsModel;
 
@@ -38,14 +39,25 @@ public class GameThread extends Thread {
 
                 String move = currentPlayer.receiveMessage();
                 if (move == null || move.isEmpty()) {
-                    currentPlayer.sendMessage(new ResponsModel("error", "You disconnected. Ending the game.", null));
-                    opponentPlayer.sendMessage(new ResponsModel("info", "Your opponent disconnected. You win!", null));
-                    isGameRunning = false;
+                    handleDisconnection(currentPlayer, opponentPlayer);
                     break;
                 }
-                processMove(move);
-                opponentPlayer.sendMessage(new ResponsModel("update", "Opponent moved.", null));
-             
+
+                boolean moveSuccessful = processMove(move);
+                if (!moveSuccessful) {
+                    currentPlayer.sendMessage(new ResponsModel("error", "Invalid move. Try again.", null));
+                    continue;
+                }
+
+                broadcastBoard();
+
+                String gameState = gameModel.checkGameOver();
+                if (gameState != null) {
+                    handleGameOver(gameState);
+                    break;
+                }
+
+                gameModel.setIsPlayerTurn(!gameModel.isPlayerTurn());
             }
         }  finally {
             cleanup();
@@ -54,41 +66,48 @@ public class GameThread extends Thread {
         }
     }
 
-    
+   
 
     private boolean processMove(String cellId) {
-        if (!cellId.matches("cell[1-9]")) {
-            return false;
-        }
+    System.out.println("[DEBUG] Processing move: Cell ID = " + cellId);
 
-        String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
-        boolean moveSuccessful = gameModel.makeMove(cellId, currentSymbol);
-
-        return moveSuccessful;
+    if (!cellId.matches("cell[1-9]")) {
+        System.out.println("[DEBUG] Invalid cell ID received: " + cellId);
+        return false;
     }
+
+    String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
+    boolean moveSuccessful = gameModel.makeMove(cellId, currentSymbol);
+
+    if (!moveSuccessful) {
+        System.out.println("[DEBUG] Move failed. Cell ID: " + cellId + ", Symbol: " + currentSymbol);
+        System.out.println("[DEBUG] Current board state: " + Arrays.toString(gameModel.getBoard()));
+    }
+
+    return moveSuccessful;
+}
+
 
     private void broadcastBoard() {
         StringBuilder boardState = new StringBuilder("Board state:\n");
-        String[] board = gameModel.getBoardState();
+        String[] board = gameModel.getBoard();
+        ResponsModel boardResponse = new ResponsModel("update", "Board updated.", board);
 
-        for (int i = 0; i < board.length; i++) {
-            boardState.append(board[i] == null ? "-" : board[i]);
-            if ((i + 1) % 3 == 0) {
-                boardState.append("\n");
-            } else {
-                boardState.append(" ");
-            }
-        }
-
-        ResponsModel boardResponse = new ResponsModel("info", boardState.toString(), null);
         playerOne.sendMessage(boardResponse);
         playerTwo.sendMessage(boardResponse);
+
     }
 
     private void handleGameOver(String gameState) {
-        ResponsModel gameOverResponse = new ResponsModel("info", gameState, null);
+        ResponsModel gameOverResponse = new ResponsModel("gameOver", gameState, null);
         playerOne.sendMessage(gameOverResponse);
         playerTwo.sendMessage(gameOverResponse);
+        isGameRunning = false;
+    }
+    
+    private void handleDisconnection(ClientHandler disconnectedPlayer, ClientHandler opponentPlayer) {
+        disconnectedPlayer.sendMessage(new ResponsModel("error", "You disconnected. Ending the game.", null));
+        opponentPlayer.sendMessage(new ResponsModel("info", "Your opponent disconnected. You win!", null));
         isGameRunning = false;
     }
 
