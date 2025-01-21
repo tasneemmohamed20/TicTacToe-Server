@@ -97,6 +97,7 @@ public class ClientHandler extends Thread {
                             dos.writeUTF(jsonResponse);
                             break;
                         case "fetchOnline":
+                            System.out.println("isGameActive = " + isGameActive);
                            if (isGameActive) {
                             jsonResponse = gson.toJson(new ResponsModel("error", "Cannot fetch online users during an active game.", null));
                         } else {
@@ -127,7 +128,7 @@ public class ClientHandler extends Thread {
         }
     }
 
-public void closeConnection() {
+    public void closeConnection() {
         try {
             clientsVector.remove(this);
             if (dis != null) dis.close();
@@ -138,29 +139,35 @@ public void closeConnection() {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-public String receiveMessage() {
-    try {
-        String ss =  dis.readUTF();
-        System.out.println( "RECEIVE MESSAGE UTF "+ss);
-        return ss;
-              
-    } catch (IOException ex) {
-        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        return null;
-    }
-}
 
-public void sendMessage(ResponsModel response) {
-    try {
-        dos.writeUTF(gson.toJson(response));
-        dos.flush();
-        System.out.println("[DEBUG] Sent message to client: " + gson.toJson(response));
-    } catch (IOException e) {
-        System.err.println("[ERROR] Failed to send message: " + e.getMessage());
-        e.printStackTrace();
-    }
-}
+    public String receiveMessage() {
+        try {
 
+            if (socket == null || socket.isClosed()) {
+                return null;
+            }
+
+            String ss =  dis.readUTF();
+            System.out.println( "RECEIVE MESSAGE UTF "+ss);
+            return ss;
+                
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            closeConnection();
+            return null;
+        }
+    }
+
+    public void sendMessage(ResponsModel response) {
+        try {
+            dos.writeUTF(gson.toJson(response));
+            dos.flush();
+            System.out.println("[DEBUG] Sent message to client: " + gson.toJson(response));
+        } catch (IOException e) {
+            System.err.println("[ERROR] Failed to send message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
     
     private void sendInvite(RequsetModel request) {
     Map<String, String> data = (Map<String, String>) request.getData();
