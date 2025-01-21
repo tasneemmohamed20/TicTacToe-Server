@@ -37,11 +37,12 @@ public class GameThread extends Thread {
             playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", gameModel));
             playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", gameModel));
 
+            broadcastBoard();
             while (isGameRunning) {
                 ClientHandler currentPlayer = gameModel.isPlayerTurn() ? playerOne : playerTwo;
                 ClientHandler opponentPlayer = gameModel.isPlayerTurn() ? playerTwo : playerOne;
 
-                currentPlayer.sendMessage(new ResponsModel("info", "Your turn. Enter your move (cell1-cell9):", null));
+                // currentPlayer.sendMessage(new ResponsModel("info", "Your turn. Enter your move (cell1-cell9):", null));
 
                 String move = currentPlayer.receiveMessage();
                 System.err.println("[DEBUG] Received move in GameThread: " + move);
@@ -77,7 +78,7 @@ public class GameThread extends Thread {
                     break;
                 }
 
-                gameModel.setIsPlayerTurn(gameModel.isPlayerTurn());
+                // gameModel.setIsPlayerTurn(gameModel.isPlayerTurn());
             }
         }catch (RuntimeException e) {
             ClientHandler disconnectedPlayer = (e.getMessage() != null && e.getMessage().contains(playerOne.getName())) 
@@ -95,28 +96,25 @@ public class GameThread extends Thread {
    
 
     private boolean processMove(String moveData) {
-    System.out.println("[DEBUG] Processing move: Cell ID = " + moveData);
-
-    if (!moveData.matches("cell[1-9]")) {
-        System.out.println("[DEBUG] Invalid cell ID received: " + moveData);
-        return false;
-    }
-
-    String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
-    System.out.println("[DEBUG] Current player: " + (gameModel.isPlayerTurn() ? "Player 1" : "Player 2"));
-    System.out.println("[DEBUG] Current symbol: " + currentSymbol);
+        System.out.println("[DEBUG] Processing move: Cell ID = " + moveData);
     
-    boolean moveSuccessful = gameModel.makeMove(moveData, currentSymbol);
-
-    if (!moveSuccessful) {
-        System.out.println("[DEBUG] Move failed. Cell ID: " + moveData + ", Symbol: " + currentSymbol);
-    } else {
-        System.out.println("[DEBUG] Move successful. Broadcasting updated board.");
-        broadcastBoard();
+        if (!moveData.matches("cell[1-9]")) {
+            System.out.println("[DEBUG] Invalid cell ID received: " + moveData);
+            return false;
+        }
+    
+        String currentSymbol = gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
+        System.out.println("[DEBUG] Current player: " + (gameModel.isPlayerTurn() ? "Player 1" : "Player 2"));
+        System.out.println("[DEBUG] Current symbol: " + currentSymbol);
+        
+        boolean moveSuccessful = gameModel.makeMove(moveData, currentSymbol);
+    
+        if (!moveSuccessful) {
+            System.out.println("[DEBUG] Move failed. Cell ID: " + moveData + ", Symbol: " + currentSymbol);
+        }
+    
+        return moveSuccessful;
     }
-
-    return moveSuccessful;
-}
 
 
     // private void broadcastBoard() {
@@ -131,17 +129,26 @@ public class GameThread extends Thread {
 
     private void broadcastBoard() {
         String[] board = gameModel.getBoard();
-        String currentTurn = !gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
+        String currentTurn = gameModel.getCurrentPlayer().equals(gameModel.getPlayer1()) 
+                        ? gameModel.getPlayer1Symbol() 
+                        : gameModel.getPlayer2Symbol();
+        // String currentTurn = !gameModel.isPlayerTurn() ? gameModel.getPlayer1Symbol() : gameModel.getPlayer2Symbol();
         Map<String, Object> updateData = new HashMap<>();
         updateData.put("board", board);
         updateData.put("currentTurn", currentTurn);
+        updateData.put("currentPlayer", gameModel.getCurrentPlayer());
 
         System.out.println("[DEBUG] Broadcasting board state: " + Arrays.toString(board));
+        System.out.println("[DEBUG] Current turn: " + currentTurn);
         System.out.println("[DEBUG] Current turn: " + currentTurn);
         
         ResponsModel boardResponse = new ResponsModel("update", "Board updated.", updateData);
         playerOne.sendMessage(boardResponse);
         playerTwo.sendMessage(boardResponse);
+
+        ClientHandler currentPlayer = gameModel.getCurrentPlayer().equals(gameModel.getPlayer1()) ? playerOne : playerTwo;
+        currentPlayer.sendMessage(new ResponsModel("info", "Your turn. Enter your move (cell1-cell9):", null));
+    
     }
 
     private void handleGameOver(String gameState) {

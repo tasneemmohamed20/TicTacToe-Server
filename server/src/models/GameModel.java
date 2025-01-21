@@ -85,18 +85,18 @@ public class GameModel {
     public boolean makeMove(String cellId, String symbol) {
         int cellIndex = getCellIndex(cellId);
         System.out.println("[DEBUG] Attempting move - Cell: " + cellId + ", Symbol: " + symbol);
-
+    
         if (cellIndex < 0 || cellIndex >= board.length || board[cellIndex] != null) {
             System.err.println("Invalid move: Cell " + cellId + " is already occupied or out of bounds.");
             return false;
         }
-
-        String expectedSymbol = currentPlayer.equals(player1) ? player1Symbol : player2Symbol;
-        if (!symbol.equals(expectedSymbol)) {
+    
+        String currentSymbol = currentPlayer.equals(player1) ? player1Symbol : player2Symbol;
+        if (!symbol.equals(currentSymbol)) {
             System.err.println("Invalid move: Symbol " + symbol + " does not match current player " + currentPlayer);
             return false;
         }
-
+    
         board[cellIndex] = symbol;
         switchTurn();
         return true;
