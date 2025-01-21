@@ -73,7 +73,7 @@ public class ClientHandler extends Thread {
     @Override
     public void run() {
         try {
-            while (true) {
+            while (!socket.isClosed()) {
                 if (isGameActive && activeGameThread != null) {
                     Thread.sleep(100); 
                     continue;
@@ -94,6 +94,10 @@ public class ClientHandler extends Thread {
                             break;
                         case "login":
                             jsonResponse = handleLogin(user);
+                            dos.writeUTF(jsonResponse);
+                            break;
+                        case "logout":
+                            jsonResponse = handleLogout(request); 
                             dos.writeUTF(jsonResponse);
                             break;
                         case "fetchOnline":
@@ -130,14 +134,17 @@ public class ClientHandler extends Thread {
 
     public void closeConnection() {
         try {
-            clientsVector.remove(this);
-            if (dis != null) dis.close();
-            if (dos != null) dos.close();
-            if (socket != null) socket.close();
-            System.out.println("Connection with client " + name + " closed.");
-        } catch (IOException ex) {
-            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        if (name != null) {
+            dbManager.updateUserStatus(name, "offline");
         }
+        clientsVector.remove(this);
+        if (dis != null) dis.close();
+        if (dos != null) dos.close();
+        if (socket != null) socket.close();
+        System.out.println("Connection with client " + name + " closed.");
+    } catch (IOException | SQLException ex) {
+        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+    }
     }
 
     public String receiveMessage() {
@@ -342,6 +349,29 @@ public class ClientHandler extends Thread {
             return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
+    
+    private String handleLogout(RequsetModel request) {
+    try {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        if (data == null || !data.containsKey("username")) {
+            return gson.toJson(new ResponsModel("error", "Logout failed: Missing username in request.", null));
+        }
+
+        String username = data.get("username");
+        if (dbManager.updateUserStatus(username, "offline")) {
+            closeConnection(); 
+            return gson.toJson(new ResponsModel("success", "Logout successful.", null));
+        } else {
+            return gson.toJson(new ResponsModel("error", "Logout failed: User not found or already offline.", null));
+        }
+    } catch (SQLException ex) {
+        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, "Error updating user status during logout", ex);
+        return gson.toJson(new ResponsModel("error", "Error during logout: " + ex.getMessage(), null));
+    }
+}
+
+
+
 }
 
 
