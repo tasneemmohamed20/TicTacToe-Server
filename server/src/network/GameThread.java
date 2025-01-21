@@ -8,10 +8,13 @@ import java.net.Socket;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import models.GameModel;
 import models.ResponsModel;
 
 public class GameThread extends Thread {
+
+   
 
     private Socket player1Socket;
     private Socket player2Socket;
@@ -23,6 +26,7 @@ public class GameThread extends Thread {
     private Gson gson = new Gson();
     private ClientHandler player1Handler;
     private ClientHandler player2Handler;
+    private String currentPlayer; // Current player's turn
 
     public GameThread(Socket player1Socket, Socket player2Socket, GameModel game, ClientHandler player1Handler, ClientHandler player2Handler) {
         this.player1Socket = player1Socket;
@@ -30,52 +34,47 @@ public class GameThread extends Thread {
         this.game = game;
         this.player1Handler = player1Handler;
         this.player2Handler = player2Handler;
+        this.currentPlayer = game.getPlayer1(); // Player 1 starts
 
         try {
-            // تهيئة تدفقات الإدخال والإخراج للاعبين
+            // Initialize input/output streams for players
             player1Dis = new DataInputStream(player1Socket.getInputStream());
             player1Dos = new DataOutputStream(player1Socket.getOutputStream());
             player2Dis = new DataInputStream(player2Socket.getInputStream());
             player2Dos = new DataOutputStream(player2Socket.getOutputStream());
         } catch (IOException ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, null, ex);
+            
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error initializing streams: ", ex);
         }
     }
 
     @Override
     public void run() {
+        System.out.println("Game started between {} and {}"+ game.getPlayer1()+ game.getPlayer2());
         try {
-            // إرسال رسالة بدء اللعبة إلى كلا اللاعبين
+            // Send start game messages to both players
             sendToClient(player1Dos, new ResponsModel("start_game", "Game started. You are X.", game));
             sendToClient(player2Dos, new ResponsModel("start_game", "Game started. You are O.", game));
-            System.out.println("Game started between " + game.getPlayer1() + " and " + game.getPlayer2());
 
-            // حلقة اللعبة الرئيسية
+            // Main game loop
             while (!game.isGameOver()) {
                 try {
-                    // استقبال حركة اللاعب 1
-                    String player1Move = player1Dis.readUTF();
-                    if (player1Move != null) {
-                        handleMove(player1Move, game.getPlayer1());
-                    }
+                    // Receive move from the current player
+                    String move = (currentPlayer.equals(game.getPlayer1())) ? player1Dis.readUTF() : player2Dis.readUTF();
+                    System.out.println("Received move from {}: {}"+currentPlayer+",move:"+ move);
+                    handleMove(move, currentPlayer);
 
-                    // التحقق من انتهاء اللعبة بعد حركة اللاعب 1
+                    // Check if the game is over after each move
                     if (game.isGameOver()) {
                         break;
                     }
-
-                    // استقبال حركة اللاعب 2
-                    String player2Move = player2Dis.readUTF();
-                    if (player2Move != null) {
-                        handleMove(player2Move, game.getPlayer2());
-                    }
                 } catch (IOException ex) {
-                    Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error reading move: " + ex.getMessage(), ex);
+                    Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error reading move: ", ex);
                     break;
                 }
             }
 
-            // إرسال رسالة نهاية اللعبة
+            // Send game over message
             if (game.checkWinner(game.getPlayer1())) {
                 sendToBothPlayers(new ResponsModel("game_over", "Player " + game.getPlayer1() + " wins!", game));
             } else if (game.checkWinner(game.getPlayer2())) {
@@ -84,84 +83,77 @@ public class GameThread extends Thread {
                 sendToBothPlayers(new ResponsModel("game_over", "It's a draw!", game));
             }
         } catch (Exception ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Unexpected error: " + ex.getMessage(), ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Unexpected error: ", ex);
         } finally {
-            // تنظيف الموارد بعد انتهاء اللعبة
+            // Clean up resources
             closeResources();
         }
     }
 
-    // معالجة حركة اللاعب
+    // Handle a player's move
     private void handleMove(String move, String player) {
         try {
-            // تحويل الحركة إلى رقم (موضع في اللوحة)
             int position = Integer.parseInt(move);
 
-            // التحقق من صحة الحركة وتنفيذها
+            // Validate and execute the move
             if (position >= 0 && position < 9 && game.makeMove(player, position)) {
-                // إرسال الحركة للاعب الآخر
+                // Notify both players of the move
                 sendToBothPlayers(new ResponsModel("move", "Opponent's move: " + move, game));
 
-                // التحقق من وجود فائز
+                // Check for a winner or draw
                 if (game.checkWinner(player)) {
                     sendToBothPlayers(new ResponsModel("game_over", "Player " + player + " wins!", game));
                 } else if (game.isDraw()) {
                     sendToBothPlayers(new ResponsModel("game_over", "It's a draw!", game));
                 }
+
+                // Switch turns
+                currentPlayer = (currentPlayer.equals(game.getPlayer1())) ? game.getPlayer2() : game.getPlayer1();
             } else {
-                // إرسال رسالة خطأ إذا كانت الحركة غير صالحة
+                // Notify the player of an invalid move
                 sendToClient(player.equals(game.getPlayer1()) ? player1Dos : player2Dos,
                         new ResponsModel("error", "Invalid move. Please try again.", null));
             }
         } catch (NumberFormatException ex) {
-            // إرسال رسالة خطأ إذا كانت الحركة ليست رقمًا
+            // Notify the player if the move is not a number
             sendToClient(player.equals(game.getPlayer1()) ? player1Dos : player2Dos,
                     new ResponsModel("error", "Move must be a number.", null));
         } catch (Exception ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error handling move: " + ex.getMessage(), ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error handling move: ", ex);
         }
     }
 
-    // إرسال رسالة إلى لاعب معين
+    // Send a message to a specific client
     private void sendToClient(DataOutputStream dos, ResponsModel response) {
         try {
             String jsonResponse = gson.toJson(response);
             dos.writeUTF(jsonResponse);
             dos.flush();
         } catch (IOException ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Failed to send message to client.", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Failed to send message to client: ", ex);
         }
     }
 
-    // إرسال رسالة إلى كلا اللاعبين
+    // Send a message to both players
     private void sendToBothPlayers(ResponsModel response) {
         sendToClient(player1Dos, response);
         sendToClient(player2Dos, response);
     }
 
-    // معالجة حركة الخصم
+    // Handle opponent's move (called from ClientHandler)
     public void handleOpponentMove(Object data) {
         Map<String, String> moveData = (Map<String, String>) data;
         String player = moveData.get("player");
         int position = Integer.parseInt(moveData.get("move"));
 
-        // تحديث اللوحة
-        updateBoard(position, player);
-
-        // إرسال التحديث إلى اللاعب الآخر
-        sendToBothPlayers(new ResponsModel("move", "Opponent's move: " + position, data));
-    }
-
-    // تحديث اللوحة بناءً على الحركة
-    private void updateBoard(int position, String player) {
-        // تحديث اللوحة في GameModel
+        // Update the board
         game.makeMove(player, position);
 
-        // إرسال التحديث إلى اللاعبين
+        // Notify both players of the move
         sendToBothPlayers(new ResponsModel("move", "Opponent's move: " + position, game));
     }
 
-    // تنظيف الموارد (إغلاق التدفقات والمقابس)
+    // Clean up resources
     private void closeResources() {
         try {
             if (player1Dis != null) player1Dis.close();
@@ -171,7 +163,7 @@ public class GameThread extends Thread {
             if (player2Dos != null) player2Dos.close();
             if (player2Socket != null) player2Socket.close();
         } catch (IOException ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error closing resources", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error closing resources: ", ex);
         }
     }
 }
