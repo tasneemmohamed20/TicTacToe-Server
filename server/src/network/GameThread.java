@@ -14,8 +14,6 @@ import models.ResponsModel;
 
 public class GameThread extends Thread {
 
-   
-
     private Socket player1Socket;
     private Socket player2Socket;
     private DataInputStream player1Dis;
@@ -43,33 +41,53 @@ public class GameThread extends Thread {
             player2Dis = new DataInputStream(player2Socket.getInputStream());
             player2Dos = new DataOutputStream(player2Socket.getOutputStream());
         } catch (IOException ex) {
-            
+
             Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error initializing streams: ", ex);
         }
     }
 
     @Override
     public void run() {
-        System.out.println("Game started between {} and {}"+ game.getPlayer1()+ game.getPlayer2());
+        System.out.println("Game started between {} and {}" + game.getPlayer1() + game.getPlayer2());
         try {
+              System.out.println("player1");
             // Send start game messages to both players
             sendToClient(player1Dos, new ResponsModel("start_game", "Game started. You are X.", game));
+
             sendToClient(player2Dos, new ResponsModel("start_game", "Game started. You are O.", game));
+            
 
             // Main game loop
             while (!game.isGameOver()) {
                 try {
+                   // System.out.println("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
                     // Receive move from the current player
-                    String move = (currentPlayer.equals(game.getPlayer1())) ? player1Dis.readUTF() : player2Dis.readUTF();
-                    System.out.println("Received move from {}: {}"+currentPlayer+",move:"+ move);
+                    
+                        
+                    if (player1Dis.available() > 0) {
+                        System.out.println("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"+currentPlayer);
+                        String move = player1Dis.readUTF();
+                        System.out.println("ssssssssssssss" + move);
+                         // handleMove(move, currentPlayer);
+                    }
+                    if (player2Dis.available() > 0) {
+                        System.out.println("iii000000000000000000000000000000000000000000000000000iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
+                    String move = player2Dis.readUTF();
+                    System.out.println("ssssssssssssss" + move);
+                   // handleMove(move, currentPlayer);
+                    }
+                   // System.err.println("move000000000000000000000000000000000");
+                    /*String move = (currentPlayer.equals(game.getPlayer1())) ? player1Dis.readUTF() : player2Dis.readUTF();
+                    System.out.println("Received move from {}: {}" + currentPlayer + ",move:" + move);
                     handleMove(move, currentPlayer);
-
+*/
                     // Check if the game is over after each move
+                  
                     if (game.isGameOver()) {
                         break;
                     }
                 } catch (IOException ex) {
-                    Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error reading move: ", ex);
+                    Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error reading move: ", ex);
                     break;
                 }
             }
@@ -83,7 +101,7 @@ public class GameThread extends Thread {
                 sendToBothPlayers(new ResponsModel("game_over", "It's a draw!", game));
             }
         } catch (Exception ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Unexpected error: ", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Unexpected error: ", ex);
         } finally {
             // Clean up resources
             closeResources();
@@ -119,7 +137,7 @@ public class GameThread extends Thread {
             sendToClient(player.equals(game.getPlayer1()) ? player1Dos : player2Dos,
                     new ResponsModel("error", "Move must be a number.", null));
         } catch (Exception ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error handling move: ", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error handling move: ", ex);
         }
     }
 
@@ -130,7 +148,7 @@ public class GameThread extends Thread {
             dos.writeUTF(jsonResponse);
             dos.flush();
         } catch (IOException ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Failed to send message to client: ", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Failed to send message to client: ", ex);
         }
     }
 
@@ -156,14 +174,26 @@ public class GameThread extends Thread {
     // Clean up resources
     private void closeResources() {
         try {
-            if (player1Dis != null) player1Dis.close();
-            if (player1Dos != null) player1Dos.close();
-            if (player1Socket != null) player1Socket.close();
-            if (player2Dis != null) player2Dis.close();
-            if (player2Dos != null) player2Dos.close();
-            if (player2Socket != null) player2Socket.close();
+            if (player1Dis != null) {
+                player1Dis.close();
+            }
+            if (player1Dos != null) {
+                player1Dos.close();
+            }
+            if (player1Socket != null) {
+                player1Socket.close();
+            }
+            if (player2Dis != null) {
+                player2Dis.close();
+            }
+            if (player2Dos != null) {
+                player2Dos.close();
+            }
+            if (player2Socket != null) {
+                player2Socket.close();
+            }
         } catch (IOException ex) {
-            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE,"Error closing resources: ", ex);
+            Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, "Error closing resources: ", ex);
         }
     }
 }

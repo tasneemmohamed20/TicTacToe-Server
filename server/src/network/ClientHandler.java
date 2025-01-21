@@ -28,13 +28,14 @@ public class ClientHandler extends Thread {
     private static final String ACTION_ACCEPT = "accept";
 
     private Socket clientSocket;
-    private DataInputStream dis;
-    private DataOutputStream dos;
+    DataInputStream dis;
+    DataOutputStream dos;
     private Gson gson = new Gson();
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
     private String name;
     private boolean isRunning = true;
+    private boolean isPlaying;
     private GameThread gameThread; // مرجع إلى GameThread
 
     public ClientHandler(Socket socket, DAO dbManager) {
@@ -54,61 +55,71 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (isRunning) {
-                try {
-                    String jsonRequest = dis.readUTF();
-                    System.out.println("Received from Client: " + jsonRequest);
-
-                    RequsetModel request;
+                if (!isPlaying) {
                     try {
-                        request = gson.fromJson(jsonRequest, RequsetModel.class);
-                    } catch (JsonSyntaxException e) {
-                        System.err.println("Invalid JSON received: " + jsonRequest);
-                        continue;
-                    }
 
-                    String jsonResponse;
-                    switch (request.getAction()) {
-                        case ACTION_REGISTER:
-                            jsonResponse = handleRegistration(request);
-                            break;
-                        case ACTION_LOGIN:
-                            jsonResponse = handleLogin(request);
-                            break;
-                        case ACTION_FETCH_ONLINE:
-                            jsonResponse = handleFetchOnlineUsers();
-                            break;
-                        case ACTION_INVITE:
-                            sendInvite(request);
+                        String jsonRequest = dis.readUTF();
+
+                        System.out.println("Received from Client: " + jsonRequest);
+
+                        RequsetModel request;
+                        try {
+
+                            request = gson.fromJson(jsonRequest, RequsetModel.class);
+
+                        } catch (JsonSyntaxException e) {
+                            System.err.println("Invalid JSON received: " + jsonRequest);
                             continue;
-                        case ACTION_CANCEL:
-                            cancelInvite(request);
-                            continue;
-                        case ACTION_ACCEPT:
-                            acceptInvitation(request);
-                            continue;
-                        case "move":
-                            // تمرير الحركة إلى GameThread
-                            if (gameThread != null) {
-                                gameThread.handleOpponentMove(request.getData());
-                            } else {
-                                System.out.println("GameThread is not initialized.");
-                            }
-                            continue;
-                        default:
-                            jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
+                        }
+
+                        String jsonResponse;
+
+                        switch (request.getAction()) {
+                            case ACTION_REGISTER:
+                                jsonResponse = handleRegistration(request);
+                                break;
+                            case ACTION_LOGIN:
+                                jsonResponse = handleLogin(request);
+                                break;
+                            case ACTION_FETCH_ONLINE:
+                                jsonResponse = handleFetchOnlineUsers();
+                                break;
+                            case ACTION_INVITE:
+                                sendInvite(request);
+                                continue;
+                            case ACTION_CANCEL:
+                                cancelInvite(request);
+                                continue;
+                            case ACTION_ACCEPT:
+                                acceptInvitation(request);
+                                continue;
+                            case "move":
+                                // تمرير الحركة إلى GameThread
+                                System.out.println("data   " + request.getData());
+                                if (gameThread != null) {
+                                    gameThread.handleOpponentMove(request.getData());
+                                } else {
+                                    System.out.println("GameThread is not initialized.");
+                                }
+                                continue;
+
+                            default:
+                                jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
+                        }
+                        System.out.println("jsonResponse:::" + jsonResponse);
+                        dos.writeUTF(jsonResponse);
+
+                    } catch (SocketException ex) {
+                        System.err.println("Connection lost with client: " + name);
+                        break;
+                    } catch (IOException ex) {
+                        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+                        break;
                     }
-                    System.out.println("jsonResponse:::" + jsonResponse);
-                    dos.writeUTF(jsonResponse);
-                } catch (SocketException ex) {
-                    System.err.println("Connection lost with client: " + name);
-                    break;
-                } catch (IOException ex) {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-                    break;
                 }
             }
         } finally {
-            cleanup();
+            // cleanup();
         }
     }
 
@@ -188,7 +199,13 @@ public class ClientHandler extends Thread {
         if (player1Handler != null && player2Handler != null) {
             GameModel game = new GameModel(player1, player2);
 
-            // إنشاء GameThread وإعطاؤه مرجعًا إلى ClientHandler
+            // player1Handler.isRunning=false;
+            //player2Handler.isRunning=false;
+            player1Handler.isRunning = false;
+            player2Handler.isRunning = false;
+            player1Handler.isPlaying = true;
+            player2Handler.isPlaying = true;
+
             gameThread = new GameThread(player1Handler.clientSocket, player2Handler.clientSocket, game, player1Handler, player2Handler);
             gameThread.start();
 
