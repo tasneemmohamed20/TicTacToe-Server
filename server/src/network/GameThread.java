@@ -6,6 +6,7 @@
 package network;
 
 import com.google.gson.Gson;
+import db.DAO;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -179,10 +180,10 @@ public class GameThread extends Thread {
         // } catch (Exception e) {
         //     e.printStackTrace();
         // }
-
+        
         playerOne.endGame();
         playerTwo.endGame();
-        isGameRunning = false;
+        isGameRunning = false;  
         System.out.println("Game thread ended. Connections closed.");
     }
 }
