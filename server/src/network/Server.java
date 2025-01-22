@@ -5,19 +5,25 @@
  */
 package network;
 
+import com.google.gson.Gson;
 import db.DAO;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import models.ResponsModel;
 
 public class Server {
 
     private ServerSocket serverSocket;
     private boolean isRunning = true;
     private DAO dbManager;
+    DataOutputStream dos;
+    private Gson gson = new Gson();
+    Socket socket;
 
     public Server() {
 
@@ -27,9 +33,11 @@ public class Server {
         try {
             serverSocket = new ServerSocket(5005);
             dbManager = new DAO();
+            
             while (isRunning) {
                 try {
-                    Socket socket = serverSocket.accept();
+                    socket = serverSocket.accept();
+                    
                     System.out.println("Server accepting connections.");
                     new ClientHandler(socket, dbManager);
                 } catch (SocketException ex) {
@@ -40,6 +48,7 @@ public class Server {
                     Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+            dos = new DataOutputStream(socket.getOutputStream());
         } catch (IOException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -53,6 +62,10 @@ public class Server {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
+            System.out.println("network.Server.stopServer()");
+//            if (dos != null) {
+//                 dos.writeUTF(gson.toJson(new ResponsModel("errorFromServer", "Server Closed!", null)));
+//            }
             System.out.println("Server stopped.");
         } catch (IOException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);

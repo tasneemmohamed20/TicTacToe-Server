@@ -43,7 +43,7 @@ public class ClientHandler extends Thread {
     private Gson gson = new Gson();
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
-    private String name;
+    public String name;
     private volatile boolean isGameActive = false; 
     private GameThread activeGameThread = null; 
     private boolean isReady = false;
@@ -118,6 +118,9 @@ public class ClientHandler extends Thread {
                         case "accept":
                             acceptInvitation(request);
                             break;
+                        case "updateScore":
+                            updateScore((Map<String, String>) request.getData());
+                            break;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
@@ -131,6 +134,21 @@ public class ClientHandler extends Thread {
             closeConnection();
         }
     }
+    
+       private void updateScore(Map<String, String> data){
+        String name = data.get("name");
+        try {
+            boolean isUpdate = DAO.updateScoreByUsername(name);
+            if(isUpdate)
+                System.out.println("score" + name + "updated successfly.==============================");
+            else
+                System.out.println("something error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        } catch (SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
 
     public void closeConnection() {
         try {

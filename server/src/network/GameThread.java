@@ -6,9 +6,13 @@
 package network;
 
 import com.google.gson.Gson;
+import db.DAO;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import models.GameModel;
 import models.RequsetModel;
@@ -47,6 +51,16 @@ public class GameThread extends Thread {
                 String move = currentPlayer.receiveMessage();
                 System.err.println("[DEBUG] Received move in GameThread: " + move);
                 
+                RequsetModel requestToUpdate = gson.fromJson(move, RequsetModel.class);
+
+                if(requestToUpdate.getAction().equals("updateScore"))
+                    updateScore((Map<String, String>) requestToUpdate.getData());
+
+                if(requestToUpdate.getAction().equals("errorFromPlayer2"))
+                    sendServerErrorToP1();
+
+
+                
                 if (move == null) {
                     System.out.println("[DEBUG] Player disconnected during their turn");
                     handleDisconnection(currentPlayer, opponentPlayer);
@@ -74,7 +88,7 @@ public class GameThread extends Thread {
 
                 String gameState = gameModel.checkGameOver();
                 if (!gameState.equals("Game ongoing")) {
-                    handleGameOver(gameState);
+                    handleGameOver(gameModel);
                     break;
                 }
 
@@ -151,8 +165,11 @@ public class GameThread extends Thread {
     
     }
 
-    private void handleGameOver(String gameState) {
-        ResponsModel gameOverResponse = new ResponsModel("gameOver", gameState, null);
+       private void handleGameOver(GameModel gameModel) {
+        Map<String, String> data = new HashMap<>();
+        data.put("player1", playerOne.name);
+        data.put("player2", playerTwo.name);
+        ResponsModel gameOverResponse = new ResponsModel("gameOver", gameModel.checkGameOver(), data);
         playerOne.sendMessage(gameOverResponse);
         playerTwo.sendMessage(gameOverResponse);
         isGameRunning = false;
@@ -184,5 +201,25 @@ public class GameThread extends Thread {
         playerTwo.endGame();
         isGameRunning = false;
         System.out.println("Game thread ended. Connections closed.");
+    }
+    
+    private void updateScore(Map<String, String> data){
+        String name = data.get("name");
+        try {
+            boolean isUpdate = DAO.updateScoreByUsername(name);
+            if(isUpdate)
+                System.out.println("score " + name + " updated successfly. ==============================");
+            else
+                System.out.println("something error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        } catch (SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private void sendServerErrorToP1(){
+        ResponsModel boardResponse = new ResponsModel("errorFromPlayer2", "Server Stoped !!", null);
+        playerOne.sendMessage(boardResponse);
+        System.out.println("sendServerErrorToP1 ===============================");
     }
 }
