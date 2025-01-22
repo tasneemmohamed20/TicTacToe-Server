@@ -137,6 +137,23 @@ public class DAO {
         ps.close();
         return allUsers;
     }
+    
+    public static boolean updateScoreByUsername(String username) throws SQLException {
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+
+        PreparedStatement ps = con.prepareStatement("UPDATE users SET score = score + 5 WHERE username = ?");
+        ps.setString(1, username);
+
+        int result = ps.executeUpdate();
+        ps.close();
+        con.close();
+
+        return result > 0;
+    }
+
+    
+    
 
 }
 
