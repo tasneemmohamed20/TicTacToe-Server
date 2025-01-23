@@ -281,20 +281,26 @@ public class ClientHandler extends Thread {
         }
 
         if (player1 != null && player2 != null) {
-            String gameId = "game-" + System.currentTimeMillis();
-            GameModel gameModel = new GameModel(gameId, sender, "X", receiver, "O");
-
-            System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
-
-            ResponsModel gameStartResponse = new ResponsModel("gameStart", "Game started successfully.", gameModel);
-
-            player1.sendMessage(gameStartResponse);
-            player2.sendMessage(gameStartResponse);
-
-            GameThread gameThread = new GameThread(player1, player2, gameModel);
-            player1.startGame(gameThread);
-            player2.startGame(gameThread);
-            gameThread.start();
+            try {
+                dbManager.updateUserStatus(sender, "ingame");
+                dbManager.updateUserStatus(receiver, "ingame");
+                String gameId = "game-" + System.currentTimeMillis();
+                GameModel gameModel = new GameModel(gameId, sender, "X", receiver, "O");
+                
+                System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
+                
+                ResponsModel gameStartResponse = new ResponsModel("gameStart", "Game started successfully.", gameModel);
+                
+                player1.sendMessage(gameStartResponse);
+                player2.sendMessage(gameStartResponse);
+                
+                GameThread gameThread = new GameThread(player1, player2, gameModel);
+                player1.startGame(gameThread);
+                player2.startGame(gameThread);
+                gameThread.start();
+            } catch (SQLException ex) {
+                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } else {
             System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
         }
@@ -340,8 +346,13 @@ public class ClientHandler extends Thread {
     }
 
     public void endGame() {
-        isGameActive = false;
-        activeGameThread = null;
+        try {
+            dbManager.updateUserStatus(name, "online");
+            isGameActive = false;
+            activeGameThread = null;
+        } catch (SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private String handleRegistration(UserModel user) {
