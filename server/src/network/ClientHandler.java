@@ -56,12 +56,13 @@ public class ClientHandler extends Thread {
         return isReady;
     }
 
-    public ClientHandler(Socket socket, DAO dbManager) {
+    public ClientHandler(Socket socket, DAO dbManager, DataOutputStream dos) {
         try {
             this.socket = socket;
             this.dbManager = dbManager;
             dis = new DataInputStream(socket.getInputStream());
-            dos = new DataOutputStream(socket.getOutputStream());
+            // dos = new DataOutputStream(socket.getOutputStream());
+            this.dos = dos;
             clientsVector.add(this);
 
             start();
