@@ -1,11 +1,15 @@
-.chart-bar {
+/* .chart-bar {
     -fx-bar-fill: #3498db;
-}
+} */
 
 .onlinePlayers .chart-bar {
-    -fx-bar-fill: #2ecc71; 
+    -fx-bar-fill: #2ecc71 !important;
 }
 
 .offlinePlayers .chart-bar {
-    -fx-bar-fill: #e74c3c; 
+    -fx-bar-fill: #e74c3c !important;
+}
+
+.inGamePlayers .chart-bar {
+    -fx-bar-fill: #ffd700 !important;
 }
