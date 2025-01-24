@@ -39,7 +39,8 @@ public class Server {
                     socket = serverSocket.accept();
                     
                     System.out.println("Server accepting connections.");
-                    new ClientHandler(socket, dbManager);
+                    dos = new DataOutputStream(socket.getOutputStream());
+                    new ClientHandler(socket, dbManager, dos);
                 } catch (SocketException ex) {
                     if (!isRunning) {
                         System.out.println("Server stopped accepting connections.");
@@ -48,7 +49,7 @@ public class Server {
                     Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-            dos = new DataOutputStream(socket.getOutputStream());
+            
         } catch (IOException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -70,6 +71,7 @@ public class Server {
         } catch (IOException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
+            // serverSocket = null;
             dbManager.close();
         }
     }
