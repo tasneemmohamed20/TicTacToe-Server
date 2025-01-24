@@ -44,8 +44,8 @@ public class ClientHandler extends Thread {
     private static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
     public String name;
-    private volatile boolean isGameActive = false; 
-    private GameThread activeGameThread = null; 
+    private volatile boolean isGameActive = false;
+    private GameThread activeGameThread = null;
     private boolean isReady = false;
 
     public void setReady(boolean ready) {
@@ -75,7 +75,7 @@ public class ClientHandler extends Thread {
         try {
             while (!socket.isClosed()) {
                 if (isGameActive && activeGameThread != null) {
-                    Thread.sleep(100); 
+                    Thread.sleep(100);
                     continue;
                 }
 
@@ -83,7 +83,8 @@ public class ClientHandler extends Thread {
                     String jsonRequest = dis.readUTF();
                     RequsetModel request = gson.fromJson(jsonRequest, RequsetModel.class);
 
-                    Type userType = new TypeToken<UserModel>() {}.getType();
+                    Type userType = new TypeToken<UserModel>() {
+                    }.getType();
                     UserModel user = gson.fromJson(gson.toJson(request.getData()), userType);
 
                     String jsonResponse;
@@ -97,18 +98,18 @@ public class ClientHandler extends Thread {
                             dos.writeUTF(jsonResponse);
                             break;
                         case "logout":
-                            jsonResponse = handleLogout(request); 
+                            jsonResponse = handleLogout(request);
                             dos.writeUTF(jsonResponse);
                             break;
                         case "fetchOnline":
                             System.out.println("isGameActive = " + isGameActive);
-                           if (isGameActive) {
-                            jsonResponse = gson.toJson(new ResponsModel("error", "Cannot fetch online users during an active game.", null));
-                        } else {
-                            jsonResponse = handleFetchOnlineUsers(name);
-                        }
-                        dos.writeUTF(jsonResponse);
-                        break;
+                            if (isGameActive) {
+                                jsonResponse = gson.toJson(new ResponsModel("error", "Cannot fetch online users during an active game.", null));
+                            } else {
+                                jsonResponse = handleFetchOnlineUsers(name);
+                            }
+                            dos.writeUTF(jsonResponse);
+                            break;
                         case "invite":
                             sendInvite(request);
                             break;
@@ -121,11 +122,14 @@ public class ClientHandler extends Thread {
                         case "updateScore":
                             updateScore((Map<String, String>) request.getData());
                             break;
+                        case "withdraw":
+                            handleQuitRequest(request);
+                             break;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
                 } else {
-                    Thread.sleep(100); 
+                    Thread.sleep(100);
                 }
             }
         } catch (IOException | InterruptedException ex) {
@@ -134,35 +138,55 @@ public class ClientHandler extends Thread {
             closeConnection();
         }
     }
-    
-       private void updateScore(Map<String, String> data){
+
+    private void handleQuitRequest(RequsetModel request) {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String quittingPlayer = data.get("player");
+        String gameId = data.get("gameId");
+
+        // إرسال رسالة إلى اللاعب الآخر
+        System.err.println("[DEBUG] Sending quit message to opponent: " + quittingPlayer);
+         sendMessage(new ResponsModel("withdraw", quittingPlayer + " has quit the game.", null));
+        
+
+        // إغلاق اللعبة
+        //endGame(gameId);
+    }
+
+    private void updateScore(Map<String, String> data) {
         String name = data.get("name");
         try {
             boolean isUpdate = DAO.updateScoreByUsername(name);
-            if(isUpdate)
+            if (isUpdate) {
                 System.out.println("score" + name + "updated successfly.==============================");
-            else
+            } else {
                 System.out.println("something error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
 
-
     public void closeConnection() {
         try {
-        if (name != null) {
-            dbManager.updateUserStatus(name, "offline");
+            if (name != null) {
+                dbManager.updateUserStatus(name, "offline");
+            }
+            clientsVector.remove(this);
+            if (dis != null) {
+                dis.close();
+            }
+            if (dos != null) {
+                dos.close();
+            }
+            if (socket != null) {
+                socket.close();
+            }
+            System.out.println("Connection with client " + name + " closed.");
+        } catch (IOException | SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
-        clientsVector.remove(this);
-        if (dis != null) dis.close();
-        if (dos != null) dos.close();
-        if (socket != null) socket.close();
-        System.out.println("Connection with client " + name + " closed.");
-    } catch (IOException | SQLException ex) {
-        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-    }
     }
 
     public String receiveMessage() {
@@ -172,10 +196,10 @@ public class ClientHandler extends Thread {
                 return null;
             }
 
-            String ss =  dis.readUTF();
-            System.out.println( "RECEIVE MESSAGE UTF "+ss);
+            String ss = dis.readUTF();
+            System.out.println("RECEIVE MESSAGE UTF " + ss);
             return ss;
-                
+
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
             closeConnection();
@@ -193,69 +217,93 @@ public class ClientHandler extends Thread {
             e.printStackTrace();
         }
     }
-    
+
     private void sendInvite(RequsetModel request) {
-    Map<String, String> data = (Map<String, String>) request.getData();
-    String sender = data.get("sender");
-    String receiver = data.get("receiver");
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
 
-    System.out.println("[DEBUG] Sending invitation from: " + sender + " to: " + receiver);
+        System.out.println("[DEBUG] Sending invitation from: " + sender + " to: " + receiver);
 
-    boolean receiverFound = false;
-    for (ClientHandler client : clientsVector) {
-        if (receiver.equals(client.name)) {
-            receiverFound = true;
-            try {
-                client.dos.writeUTF(gson.toJson(new ResponsModel(
-                    "invitation",
-                    sender + " wants to play with you.",
-                    data
-                )));
-                System.out.println("[DEBUG] Invitation sent to: " + receiver);
-            } catch (IOException ex) {
-                System.err.println("[ERROR] Failed to send invitation to: " + receiver + ". Error: " + ex.getMessage());
-            }
-        }
-    }
-
-    if (!receiverFound) {
-        System.out.println("[DEBUG] Receiver not found: " + receiver);
-        try {
-            dos.writeUTF(gson.toJson(new ResponsModel(
-                "error",
-                "User " + receiver + " is not available.",
-                null
-            )));
-        } catch (IOException ex) {
-            System.err.println("[ERROR] Failed to notify sender about unavailable receiver. Error: " + ex.getMessage());
-        }
-    }
-}
- 
-    private void acceptInvitation(RequsetModel request) {
-    Map<String, String> data = (Map<String, String>) request.getData();
-    String sender = data.get("sender");
-    String receiver = data.get("receiver");
-
-    System.out.println("[DEBUG] Accepting invitation from " + receiver + " for " + sender);
-
-    ClientHandler player1 = null;
-    ClientHandler player2 = null;
-
-    synchronized (clientsVector) {
+        boolean receiverFound = false;
         for (ClientHandler client : clientsVector) {
-            if (client.name.equals(sender)) {
-                player1 = client;
+            if (receiver.equals(client.name)) {
+                receiverFound = true;
+                try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                            "invitation",
+                            sender + " wants to play with you.",
+                            data
+                    )));
+                    System.out.println("[DEBUG] Invitation sent to: " + receiver);
+                } catch (IOException ex) {
+                    System.err.println("[ERROR] Failed to send invitation to: " + receiver + ". Error: " + ex.getMessage());
+                }
             }
-            if (client.name.equals(receiver)) {
-                player2 = client;
-            }
-            if (player1 != null && player2 != null) {
-                break;
+        }
+
+        if (!receiverFound) {
+            System.out.println("[DEBUG] Receiver not found: " + receiver);
+            try {
+                dos.writeUTF(gson.toJson(new ResponsModel(
+                        "error",
+                        "User " + receiver + " is not available.",
+                        null
+                )));
+            } catch (IOException ex) {
+                System.err.println("[ERROR] Failed to notify sender about unavailable receiver. Error: " + ex.getMessage());
             }
         }
     }
 
+    private void acceptInvitation(RequsetModel request) {
+        Map<String, String> data = (Map<String, String>) request.getData();
+        String sender = data.get("sender");
+        String receiver = data.get("receiver");
+
+        System.out.println("[DEBUG] Accepting invitation from " + receiver + " for " + sender);
+
+        ClientHandler player1 = null;
+        ClientHandler player2 = null;
+
+        synchronized (clientsVector) {
+            for (ClientHandler client : clientsVector) {
+                if (client.name.equals(sender)) {
+                    player1 = client;
+                }
+                if (client.name.equals(receiver)) {
+                    player2 = client;
+                }
+                if (player1 != null && player2 != null) {
+                    break;
+                }
+            }
+        }
+
+        if (player1 != null && player2 != null) {
+            try {
+                dbManager.updateUserStatus(sender, "ingame");
+                dbManager.updateUserStatus(receiver, "ingame");
+                String gameId = "game-" + System.currentTimeMillis();
+                GameModel gameModel = new GameModel(gameId, sender, "X", receiver, "O");
+                
+                System.out.println("[DEBUG] Starting game between " + sender + " and " + receiver);
+                
+                ResponsModel gameStartResponse = new ResponsModel("gameStart", "Game started successfully.", gameModel);
+                
+                player1.sendMessage(gameStartResponse);
+                player2.sendMessage(gameStartResponse);
+                
+                GameThread gameThread = new GameThread(player1, player2, gameModel);
+                player1.startGame(gameThread);
+                player2.startGame(gameThread);
+                gameThread.start();
+            } catch (SQLException ex) {
+                Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
+        }
     if (player1 != null && player2 != null) {
         try {
             dbManager.updateUserStatus(sender, "ingame");
@@ -280,12 +328,9 @@ public class ClientHandler extends Thread {
     } else {
         System.err.println("[ERROR] One or both players not found. Sender: " + sender + ", Receiver: " + receiver);
     }
-}
-
-
 
     private void cancelInvite(RequsetModel request) {
-        
+
         Map<String, String> data = (Map<String, String>) request.getData();
         String sender = data.get("sender");
         String receiver = data.get("receiver");
@@ -294,32 +339,31 @@ public class ClientHandler extends Thread {
 
         for (ClientHandler client : clientsVector) {
 
-            if (sender.equalsIgnoreCase(client.name)){
+            if (sender.equalsIgnoreCase(client.name)) {
                 try {
                     client.dos.writeUTF(gson.toJson(new ResponsModel(
-                        "cancel",
-                        receiver + " Reject the invitation.",
-                        data
+                            "cancel",
+                            receiver + " Reject the invitation.",
+                            data
                     )));
                 } catch (IOException ex) {
                     Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-     }
-     
+        }
 
-     try {
-         dos.writeUTF(gson.toJson(new ResponsModel(
-             "error",
-             "User " + receiver + " is not available.",
-             null
-         )));
-     } catch (IOException ex) {
-         Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-     }
- }
+        try {
+            dos.writeUTF(gson.toJson(new ResponsModel(
+                    "error",
+                    "User " + receiver + " is not available.",
+                    null
+            )));
+        } catch (IOException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 
-     public void startGame(GameThread gameThread) {
+    public void startGame(GameThread gameThread) {
         isGameActive = true;
         activeGameThread = gameThread;
     }
@@ -327,15 +371,12 @@ public class ClientHandler extends Thread {
     public void endGame() {
         try {
             dbManager.updateUserStatus(name, "online");
-            
             isGameActive = false;
             activeGameThread = null;
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-
-
 
     private String handleRegistration(UserModel user) {
         try {
@@ -379,28 +420,26 @@ public class ClientHandler extends Thread {
             return gson.toJson(new ResponsModel("error", "found error : " + ex, null));
         }
     }
-    
+
     private String handleLogout(RequsetModel request) {
-    try {
-        Map<String, String> data = (Map<String, String>) request.getData();
-        if (data == null || !data.containsKey("username")) {
-            return gson.toJson(new ResponsModel("error", "Logout failed: Missing username in request.", null));
-        }
+        try {
+            Map<String, String> data = (Map<String, String>) request.getData();
+            if (data == null || !data.containsKey("username")) {
+                return gson.toJson(new ResponsModel("error", "Logout failed: Missing username in request.", null));
+            }
 
-        String username = data.get("username");
-        if (dbManager.updateUserStatus(username, "offline")) {
-            closeConnection(); 
-            return gson.toJson(new ResponsModel("success", "Logout successful.", null));
-        } else {
-            return gson.toJson(new ResponsModel("error", "Logout failed: User not found or already offline.", null));
+            String username = data.get("username");
+            if (dbManager.updateUserStatus(username, "offline")) {
+                closeConnection();
+                return gson.toJson(new ResponsModel("success", "Logout successful.", null));
+            } else {
+                return gson.toJson(new ResponsModel("error", "Logout failed: User not found or already offline.", null));
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, "Error updating user status during logout", ex);
+            return gson.toJson(new ResponsModel("error", "Error during logout: " + ex.getMessage(), null));
         }
-    } catch (SQLException ex) {
-        Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, "Error updating user status during logout", ex);
-        return gson.toJson(new ResponsModel("error", "Error during logout: " + ex.getMessage(), null));
     }
-}
-
-
 
 }
 
