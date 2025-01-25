@@ -41,7 +41,7 @@ public class ClientHandler extends Thread {
     private DataOutputStream dos;
     private Socket socket;
     private Gson gson = new Gson();
-    private static Vector<ClientHandler> clientsVector = new Vector<>();
+    public static Vector<ClientHandler> clientsVector = new Vector<>();
     private DAO dbManager;
     public String name;
     private volatile boolean isGameActive = false;
@@ -124,7 +124,7 @@ public class ClientHandler extends Thread {
                             break;
                         case "withdraw":
                             handleQuitRequest(request);
-                             break;
+                            break;
                         default:
                             jsonResponse = gson.toJson(new ResponsModel("error", "Invalid action", null));
                     }
@@ -144,12 +144,9 @@ public class ClientHandler extends Thread {
         String quittingPlayer = data.get("player");
         String gameId = data.get("gameId");
 
-        
         System.err.println("[DEBUG] Sending quit message to opponent: " + quittingPlayer);
-         sendMessage(new ResponsModel("withdraw", quittingPlayer + " has quit the game.", null));
-        
+        sendMessage(new ResponsModel("withdraw", quittingPlayer + " has quit the game.", null));
 
- 
         //endGame(gameId);
     }
 
@@ -209,12 +206,16 @@ public class ClientHandler extends Thread {
 
     public void sendMessage(ResponsModel response) {
         try {
-            dos.writeUTF(gson.toJson(response));
-            dos.flush();
-            System.out.println("[DEBUG] Sent message to client: " + gson.toJson(response));
+            if (!socket.isClosed()) {
+                dos.writeUTF(gson.toJson(response));
+                dos.flush();
+                System.out.println("[DEBUG] Sent message to client: " + gson.toJson(response));
+            } else {
+                System.err.println("[ERROR] Socket is closed. Cannot send message.");
+            }
         } catch (IOException e) {
             System.err.println("[ERROR] Failed to send message: " + e.getMessage());
-            e.printStackTrace();
+            closeConnection();
         }
     }
 
@@ -241,7 +242,7 @@ public class ClientHandler extends Thread {
                 }
             }
         }
-        
+
         for (ClientHandler client : clientsVector) {
             if (sender.equals(client.name)) {
                 try {

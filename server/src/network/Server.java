@@ -56,29 +56,30 @@ public class Server {
         }
     }
 
-    public void stopServer() {
-        isRunning = false;
-        try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
-            if (socket != null && !socket.isClosed()) {
-            socket.close();
-            }
-            if (dos != null) {
-                dos.close();
-            }
-            // System.out.println("network.Server.stopServer()");
-//            if (dos != null) {
-//                 dos.writeUTF(gson.toJson(new ResponsModel("errorFromServer", "Server Closed!", null)));
-//            }
-            System.out.println("Server stopped.");
-        } catch (IOException ex) {
-            Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            dbManager.close();
+public void stopServer() {
+    isRunning = false;
+    try {
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            serverSocket.close();
         }
+        for (ClientHandler client : ClientHandler.clientsVector) {
+            client.closeConnection();
+        }
+        
+        if (socket != null && !socket.isClosed()) {
+            socket.close();
+        }
+        if (dos != null) {
+            dos.close();
+        }
+        
+        System.out.println("Server stopped.");
+    } catch (IOException ex) {
+        Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+    } finally {
+        dbManager.close();
     }
+}
 
     public static void main(String[] args) {
         Server server = new Server();
