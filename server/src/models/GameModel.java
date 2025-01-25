@@ -110,7 +110,7 @@ public class GameModel {
         } else if (isBoardFull()) {
             return "It's a draw!";
         }
-        return "Game ongoing"; // Game continues
+        return "Game ongoing"; 
     }
 
     public void resetBoard() {
@@ -130,9 +130,9 @@ public class GameModel {
 
     private boolean isWinningConditionMet(String symbol) {
         int[][] winningCombinations = {
-            {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // Rows
-            {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // Columns
-            {0, 4, 8}, {2, 4, 6}             // Diagonals
+            {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, 
+            {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, 
+            {0, 4, 8}, {2, 4, 6}             
         };
 
         for (int[] combination : winningCombinations) {
@@ -172,6 +172,31 @@ public class GameModel {
         + ", isPlayerTurn: " + isPlayerTurn);
     }
     
-    
+    private int[] getWinningCombination(String symbol) {
+    int[][] winningCombinations = {
+        {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, 
+        {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, 
+        {0, 4, 8}, {2, 4, 6}             
+    };
 
+    for (int[] combination : winningCombinations) {
+        if (symbol.equals(board[combination[0]]) &&
+            symbol.equals(board[combination[1]]) &&
+            symbol.equals(board[combination[2]])) {
+            return combination;
+        }
+    }
+    return null; 
+}
+
+public int[] getWinningLine() {
+    if (isWinningConditionMet(player1Symbol)) {
+        System.out.println("Winning line for Player 1: " + Arrays.toString(getWinningCombination(player1Symbol)));
+        return getWinningCombination(player1Symbol);
+    } else if (isWinningConditionMet(player2Symbol)) {
+        System.out.println("Winning line for Player 2: " + Arrays.toString(getWinningCombination(player2Symbol)));
+        return getWinningCombination(player2Symbol);
+    }
+    return null;
+}
 }

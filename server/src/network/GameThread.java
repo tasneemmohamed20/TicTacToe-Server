@@ -216,6 +216,7 @@ public class GameThread extends Thread {
     }
 
     private void handleGameOver(GameModel gameModel) {
+        /*
         Map<String, String> data = new HashMap<>();
         data.put("player1", playerOne.name);
         data.put("player2", playerTwo.name);
@@ -223,6 +224,18 @@ public class GameThread extends Thread {
         playerOne.sendMessage(gameOverResponse);
         playerTwo.sendMessage(gameOverResponse);
         isGameRunning = false;
+*/
+
+    Map<String, Object> data = new HashMap<>();
+    data.put("player1", playerOne.name);
+    data.put("player2", playerTwo.name);
+    data.put("winningLine", gameModel.getWinningLine()); 
+
+    System.out.println("Sending gameOver response with winning line: " + Arrays.toString(gameModel.getWinningLine()));
+    ResponsModel gameOverResponse = new ResponsModel("gameOver", gameModel.checkGameOver(), data);
+    playerOne.sendMessage(gameOverResponse);
+    playerTwo.sendMessage(gameOverResponse);
+    isGameRunning = false;
     }
 
     private void handleDisconnection(ClientHandler disconnectedPlayer, ClientHandler remainingPlayer) {
@@ -266,6 +279,7 @@ public class GameThread extends Thread {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+        
     }
 
     private void sendServerErrorToP1() {
