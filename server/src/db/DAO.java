@@ -152,6 +152,21 @@ public class DAO {
 
         return result > 0;
     }
+        
+    public static Vector<String> getInGameUsers() throws SQLException {
+        Vector<String> inGameUsers = new Vector<>();
+        DriverManager.registerDriver(new ClientDriver());
+        Connection con = DriverManager.getConnection("jdbc:derby://localhost:1527/Users", "root", "root");
+        PreparedStatement ps = con.prepareStatement("SELECT username FROM users WHERE status = 'ingame'", 
+            ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet res = ps.executeQuery();
+        while (res.next()) {
+            inGameUsers.add(res.getString("username"));
+        }
+        con.close();
+        ps.close();
+        return inGameUsers;
+    }
 
 }
 
