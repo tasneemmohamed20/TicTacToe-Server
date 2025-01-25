@@ -37,7 +37,7 @@ public class Server {
             while (isRunning) {
                 try {
                     socket = serverSocket.accept();
-                    
+                    dos = new DataOutputStream(socket.getOutputStream());
                     System.out.println("Server accepting connections.");
                     new ClientHandler(socket, dbManager);
                 } catch (SocketException ex) {
@@ -48,7 +48,7 @@ public class Server {
                     Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-            dos = new DataOutputStream(socket.getOutputStream());
+            // dos = new DataOutputStream(socket.getOutputStream());
         } catch (IOException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -62,7 +62,13 @@ public class Server {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
-            System.out.println("network.Server.stopServer()");
+            if (socket != null && !socket.isClosed()) {
+            socket.close();
+            }
+            if (dos != null) {
+                dos.close();
+            }
+            // System.out.println("network.Server.stopServer()");
 //            if (dos != null) {
 //                 dos.writeUTF(gson.toJson(new ResponsModel("errorFromServer", "Server Closed!", null)));
 //            }

@@ -57,7 +57,7 @@
       </BarChart>
    </right>
    <top>
-      <FlowPane alignment="TOP_RIGHT" maxHeight="-Infinity" prefHeight="119.0" prefWidth="1260.0" BorderPane.alignment="CENTER">
+      <FlowPane alignment="TOP_RIGHT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="120.0" prefWidth="1260.0" BorderPane.alignment="CENTER">
          <children>
             <Text fill="#dcbf3f" strokeType="OUTSIDE" strokeWidth="0.0" text="SERVER" textAlignment="JUSTIFY" wrappingWidth="926.029296875">
                <font>
@@ -67,7 +67,7 @@
                   <Insets />
                </FlowPane.margin>
             </Text>
-            <Button fx:id="startButton" mnemonicParsing="false" onAction="#handleStartButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="Start">
+            <Button fx:id="startButton" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#handleStartButton" prefHeight="50.0" prefWidth="127.0" style="-fx-font-size: 16px;" text="Start">
                <FlowPane.margin>
                   <Insets right="20.0" />
                </FlowPane.margin>

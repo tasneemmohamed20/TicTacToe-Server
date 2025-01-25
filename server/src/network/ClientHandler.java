@@ -144,12 +144,12 @@ public class ClientHandler extends Thread {
         String quittingPlayer = data.get("player");
         String gameId = data.get("gameId");
 
-        // إرسال رسالة إلى اللاعب الآخر
+        
         System.err.println("[DEBUG] Sending quit message to opponent: " + quittingPlayer);
          sendMessage(new ResponsModel("withdraw", quittingPlayer + " has quit the game.", null));
         
 
-        // إغلاق اللعبة
+ 
         //endGame(gameId);
     }
 

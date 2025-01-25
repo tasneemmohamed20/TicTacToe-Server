@@ -24,12 +24,13 @@ import models.ResponsModel;
  * @author Ism
  */
 public class GameThread extends Thread {
+
     private final ClientHandler playerOne;
     private final ClientHandler playerTwo;
     private final GameModel gameModel;
     private boolean isGameRunning = true;
     private Gson gson = new Gson();
-    
+
     public GameThread(ClientHandler playerOne, ClientHandler playerTwo, GameModel gameModel) {
         this.playerOne = playerOne;
         this.playerTwo = playerTwo;
@@ -41,16 +42,22 @@ public class GameThread extends Thread {
         try {
             playerOne.sendMessage(new ResponsModel("gameStart", "Game started! You are Player X.", gameModel));
             playerTwo.sendMessage(new ResponsModel("gameStart", "Game started! You are Player O.", gameModel));
-            
+            try {
+                new DAO().updateUserStatus(playerOne.name, "ingame");
+                new DAO().updateUserStatus(playerTwo.name, "ingame");
+            } catch (SQLException ex) {
+                Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
             broadcastBoard();
             while (isGameRunning) {
                 ClientHandler currentPlayer = gameModel.isPlayerTurn() ? playerOne : playerTwo;
                 ClientHandler opponentPlayer = gameModel.isPlayerTurn() ? playerTwo : playerOne;
-                
+
                 // currentPlayer.sendMessage(new ResponsModel("info", "Your turn. Enter your move (cell1-cell9):", null));
                 String move = currentPlayer.receiveMessage();
                 System.err.println("[DEBUG] Received move in GameThread: " + move);
-                
+
                 RequsetModel requestToUpdate = gson.fromJson(move, RequsetModel.class);
                 if (requestToUpdate.getAction().equals("withdraw")) {
                     System.err.println("GameThread listening withdraw action");
@@ -103,9 +110,15 @@ public class GameThread extends Thread {
             ClientHandler remainingPlayer = (disconnectedPlayer == playerOne) ? playerTwo : playerOne;
             handleDisconnection(playerTwo, playerOne);
         } finally {
-            cleanup();
-            // playerOne.endGame();
-            // playerTwo.endGame();
+            try {
+                cleanup();
+                new DAO().updateUserStatus(playerOne.name, "online");
+                new DAO().updateUserStatus(playerTwo.name, "online");
+                // playerOne.endGame();
+                // playerTwo.endGame();
+            } catch (SQLException ex) {
+                Logger.getLogger(GameThread.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 
@@ -115,7 +128,6 @@ public class GameThread extends Thread {
         String quittingPlayer = data.get("player");
         System.err.println("player" + quittingPlayer);
 
-        
         ClientHandler opponent = (quittingPlayer.equals(playerOne.name)) ? playerTwo : playerOne;
 
         if (opponent != null) {
@@ -129,6 +141,8 @@ public class GameThread extends Thread {
                 } else {
                     System.out.println("something error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                 }
+                new DAO().updateUserStatus(playerOne.name, "online");
+                new DAO().updateUserStatus(playerTwo.name, "online");
             } catch (SQLException ex) {
                 Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -143,11 +157,9 @@ public class GameThread extends Thread {
     private void endGame(String gameId) {
         isGameRunning = false;
 
-        // إغلاق اتصالات اللاعبين
         playerOne.endGame();
         playerTwo.endGame();
 
-        // إزالة اللعبة من قائمة الألعاب النشطة (إذا كنت تستخدم قائمة)
         // gamesList.remove(gameId);
     }
 
