@@ -10,9 +10,8 @@ import java.util.Map;
  *
  * @author HP
  */
-
-
 public class GameModel {
+
     private final String gameId;
     private final String player1;
     private final String player1Symbol;
@@ -85,18 +84,18 @@ public class GameModel {
     public boolean makeMove(String cellId, String symbol) {
         int cellIndex = getCellIndex(cellId);
         System.out.println("[DEBUG] Attempting move - Cell: " + cellId + ", Symbol: " + symbol);
-    
+
         if (cellIndex < 0 || cellIndex >= board.length || board[cellIndex] != null) {
             System.err.println("Invalid move: Cell " + cellId + " is already occupied or out of bounds.");
             return false;
         }
-    
+
         String currentSymbol = currentPlayer.equals(player1) ? player1Symbol : player2Symbol;
         if (!symbol.equals(currentSymbol)) {
             System.err.println("Invalid move: Symbol " + symbol + " does not match current player " + currentPlayer);
             return false;
         }
-    
+
         board[cellIndex] = symbol;
         switchTurn();
         return true;
@@ -110,7 +109,7 @@ public class GameModel {
         } else if (isBoardFull()) {
             return "It's a draw!";
         }
-        return "Game ongoing"; // Game continues
+        return "Game ongoing";
     }
 
     public void resetBoard() {
@@ -130,15 +129,15 @@ public class GameModel {
 
     private boolean isWinningConditionMet(String symbol) {
         int[][] winningCombinations = {
-            {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // Rows
-            {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // Columns
-            {0, 4, 8}, {2, 4, 6}             // Diagonals
+            {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
+            {0, 3, 6}, {1, 4, 7}, {2, 5, 8},
+            {0, 4, 8}, {2, 4, 6}
         };
 
         for (int[] combination : winningCombinations) {
-            if (symbol.equals(board[combination[0]]) &&
-                symbol.equals(board[combination[1]]) &&
-                symbol.equals(board[combination[2]])) {
+            if (symbol.equals(board[combination[0]])
+                    && symbol.equals(board[combination[1]])
+                    && symbol.equals(board[combination[2]])) {
                 return true;
             }
         }
@@ -151,27 +150,63 @@ public class GameModel {
 
     private int getCellIndex(String cellId) {
         switch (cellId) {
-            case "cell1": return 0;
-            case "cell2": return 1;
-            case "cell3": return 2;
-            case "cell4": return 3;
-            case "cell5": return 4;
-            case "cell6": return 5;
-            case "cell7": return 6;
-            case "cell8": return 7;
-            case "cell9": return 8;
-            default: return -1;
+            case "cell1":
+                return 0;
+            case "cell2":
+                return 1;
+            case "cell3":
+                return 2;
+            case "cell4":
+                return 3;
+            case "cell5":
+                return 4;
+            case "cell6":
+                return 5;
+            case "cell7":
+                return 6;
+            case "cell8":
+                return 7;
+            case "cell9":
+                return 8;
+            default:
+                return -1;
         }
     }
 
     private void switchTurn() {
         currentPlayer = currentPlayer.equals(player1) ? player2 : player1;
         isPlayerTurn = !isPlayerTurn;
-        System.out.println("[DEBUG] Turn switched - Current player: " + currentPlayer 
-        + ", Symbol: " + (currentPlayer.equals(player1) ? player1Symbol : player2Symbol)
-        + ", isPlayerTurn: " + isPlayerTurn);
+        System.out.println("[DEBUG] Turn switched - Current player: " + currentPlayer
+                + ", Symbol: " + (currentPlayer.equals(player1) ? player1Symbol : player2Symbol)
+                + ", isPlayerTurn: " + isPlayerTurn);
     }
-    
-    
+
+    private int[] getWinningCombination(String symbol) {
+        int[][] winningCombinations = {
+            {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
+            {0, 3, 6}, {1, 4, 7}, {2, 5, 8},
+            {0, 4, 8}, {2, 4, 6}
+        };
+
+        for (int[] combination : winningCombinations) {
+            if (symbol.equals(board[combination[0]])
+                    && symbol.equals(board[combination[1]])
+                    && symbol.equals(board[combination[2]])) {
+                return combination;
+            }
+        }
+        return null;
+    }
+
+    public int[] getWinningLine() {
+        if (isWinningConditionMet(player1Symbol)) {
+            System.out.println("Winning line for Player 1: " + Arrays.toString(getWinningCombination(player1Symbol)));
+            return getWinningCombination(player1Symbol);
+        } else if (isWinningConditionMet(player2Symbol)) {
+            System.out.println("Winning line for Player 2: " + Arrays.toString(getWinningCombination(player2Symbol)));
+            return getWinningCombination(player2Symbol);
+        }
+        return null;
+    }
 
 }
