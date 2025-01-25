@@ -241,6 +241,20 @@ public class ClientHandler extends Thread {
                 }
             }
         }
+        
+        for (ClientHandler client : clientsVector) {
+            if (sender.equals(client.name)) {
+                try {
+                    client.dos.writeUTF(gson.toJson(new ResponsModel(
+                            "wait",
+                            " Wait for response from " + receiver,
+                            data
+                    )));
+                } catch (IOException ex) {
+                    System.err.println("[ERROR] Failed to send invitation to: " + receiver + ". Error: " + ex.getMessage());
+                }
+            }
+        }
 
         if (!receiverFound) {
             System.out.println("[DEBUG] Receiver not found: " + receiver);
