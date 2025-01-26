@@ -375,14 +375,20 @@ public class ClientHandler extends Thread {
 
     private String handleLogin(UserModel user) {
         try {
-
-            UserModel data = dbManager.loginForUser(user.getUserName(), user.getPassword());
+          UserModel data = dbManager.loginForUser(user.getUserName(), user.getPassword());
+            if(data.getStatus().equals("offline"))
+            { 
             if (data != null) {
                 dbManager.updateUserStatus(user.getUserName(), "online");
                 name = user.getUserName();
                 return gson.toJson(new ResponsModel("success", "Login successful.", data));
             } else {
                 return gson.toJson(new ResponsModel("error", "Invalid username or password.", null));
+            }
+            }
+            else
+            {
+                return gson.toJson(new ResponsModel("error", "username is already logged in", null));
             }
         } catch (SQLException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
